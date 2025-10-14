@@ -10,9 +10,11 @@ import SwiftData
 
 @main
 struct DiscoLogApp: App {
+    @StateObject var userSettings = UserSettings()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            WorkLogs.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -22,10 +24,11 @@ struct DiscoLogApp: App {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
-
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(userSettings)
         }
         .modelContainer(sharedModelContainer)
     }
