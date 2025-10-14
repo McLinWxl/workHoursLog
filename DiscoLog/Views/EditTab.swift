@@ -34,7 +34,7 @@ struct EditTab: View {
         }
         .sheet(item: $modalType) {sheet in
             sheet
-                .presentationDetents([.height(260), .medium, .large])
+                .presentationDetents([.height(320),  .large])
                 .presentationDragIndicator(.visible)
         }
         .navigationTitle("工时记录")
@@ -90,31 +90,14 @@ struct workLogCard: View {
                     }
                 }
                 .frame(height: 30)
-                
-                
             }
             .padding(EdgeInsets(top: 10, leading: 40, bottom: 10, trailing: 40))
         }
     }
 }
 
-//struct LogFormButton: View {
-//    @State private var modalType: ModalType?
-//    var isEdit: Bool
-//    var body: some View {
-//        Button ("添加记录") {
-//            modalType = .addLog
-//        }
-//        .buttonStyle(CustomButtonComfirm())
-//        .sheet(item: $modalType) {sheet in
-//            sheet
-//                .presentationDetents([.height(260), .medium, .large])
-//                .presentationDragIndicator(.visible)
-//        }
-//    }
-//}
-
 #Preview {
     ContentView()
+        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
         .modelContainer(for: WorkLogs.self, inMemory: true)
 }

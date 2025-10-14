@@ -88,13 +88,11 @@ struct MonthlyView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-
             CalendarView(date: selectedDate)
-
         }
         .onChange(of: selectedYear) { updateSelectedDate() }
         .onChange(of: selectedMonth) { updateSelectedDate() }
-        .onChange(of: selectedDate) {        // 外部变更 → 内部同步
+        .onChange(of: selectedDate) {
             selectedYear = selectedDate.yearInt
             selectedMonth = selectedDate.monthInt
         }
@@ -160,5 +158,6 @@ struct CalendarView: View {
 // MARK: - Preview
 #Preview {
     HomeTab()
+        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
         .modelContainer(for: WorkLogs.self, inMemory: true)
 }

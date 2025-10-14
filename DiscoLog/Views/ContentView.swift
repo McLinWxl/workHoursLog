@@ -14,9 +14,8 @@ struct ContentView: View {
     
     @State private var selectedTab = 0
 
-//    @State private var showingLeft = true
-
     var body: some View {
+        
         TabView(selection: $selectedTab) {
             
             Tab("Home", systemImage: "house.fill", value: 0) {
@@ -93,7 +92,7 @@ struct tabBottomWindowForList: View {
             .padding(.trailing)
             .sheet(item: $modalType) {sheet in
                 sheet
-                    .presentationDetents([.height(260), .medium, .large])
+                    .presentationDetents([.height(320),  .large])
                     .presentationDragIndicator(.visible)
             }
         }
@@ -108,5 +107,6 @@ struct tabBottomWindowForSettings: View {
 
 #Preview {
     ContentView()
+        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
         .modelContainer(for: WorkLogs.self, inMemory: true)
 }

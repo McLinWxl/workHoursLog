@@ -16,6 +16,22 @@ struct LogForm: View {
     
     @State private var startTime_: Date
     @State private var endTime_: Date
+    
+    @State private var baseDate: Date = Calendar.current.startOfDay(for: .now)
+    
+    @State private var startClock: Date = .now
+    @State private var endClock: Date = .now.addingTimeInterval(3600)
+    
+     private var isOvernight: Bool {
+         let cal = Calendar.current
+         let s = cal.dateComponents([.hour, .minute], from: startClock)
+         let e = cal.dateComponents([.hour, .minute], from: endClock)
+         let sMins = (s.hour ?? 0) * 60 + (s.minute ?? 0)
+         let eMins = (e.hour ?? 0) * 60 + (e.minute ?? 0)
+         return eMins <= sMins
+     }
+    
+
     init(workLog: WorkLogs, isEdit: Bool) {
         self.workLog = workLog
         self.isEdit = isEdit
@@ -27,21 +43,75 @@ struct LogForm: View {
         let workDurations = endTime_.timeIntervalSince(startTime_)
         let workDurationsOfHour = Int(workDurations / 3600)
         let workDurationsOfMinutes = (Int(workDurations) % 3600) / 60
-        
+
         NavigationStack {
             Form {
-                Section {
-                    DatePicker("开始时间",
-                               selection: $startTime_,
-                               in: ...Date(),
-                               displayedComponents: [.date, .hourAndMinute])
-                    .pickerStyle(.wheel)
+                VStack {
+                    DatePicker("选择日期", selection: $baseDate, displayedComponents: .date)
+                                   .datePickerStyle(.graphical)
+                                   .environment(\.locale, .init(identifier: "zh-Hans-CN"))
                     
-                    DatePicker("结束时间",
-                               selection: $endTime_,
-                               displayedComponents: [.date, .hourAndMinute])
+                    Divider()
+                    
+                    HStack (alignment: .center) {
+                        Text("开始时间")
+                            .foregroundStyle(.secondary)
+                            .frame(height: 80)
+                            .padding(.leading, 15)
+                        Spacer(minLength: 0)
+                        TimeWheel(date: $startClock)
+                            .padding(.trailing, 15)
+                    }
+//                    .frame(height: 80)
+                    
+                    
+                    
+                    HStack (alignment: .center) {
+                        if isOvernight {
+                            HStack{
+                                OvernightBadge()
+                                Text("结束时间")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 15)
+                                    .offset(x: -15)
+                                Spacer(minLength: 0)
+                            }
+                            
+                        } else {
+                            Text("结束时间")
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 15)
+                            Spacer(minLength: 0)
+                        }
+                        
+                        TimeWheel(date: $endClock)
+                            .padding(.trailing, 15)
+                    }
+                    //
+//                    VStack(alignment: .leading, spacing: 4) {
+//                        Text("开始：\(startTime_.formatted(.dateTime.year().month().day().hour().minute()))")
+//                        Text("结束：\(endTime_.formatted(.dateTime.year().month().day().hour().minute()))")
+//                            .overlay(alignment: .trailing) {
+//                                if isOvernight {
+//                                    Text("（次日）")
+//                                        .font(.caption)
+//                                        .foregroundStyle(.orange)
+//                                        .padding(.leading, 8)
+//                                }
+//                            }
+//                    }
+//                    .font(.subheadline)
+                    //
                 }
-            }
+                .onAppear {
+                    baseDate   = Calendar.current.startOfDay(for: startTime_)
+                    startClock = startTime_
+                    endClock   = endTime_
+                    recompute()
+                }
+                .onChange(of: baseDate) { recompute() }
+                .onChange(of: startClock) {  recompute() }
+                .onChange(of: endClock) { recompute() }            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(role: .destructive) {
@@ -66,51 +136,124 @@ struct LogForm: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                HStack (alignment: .bottom) {
-                    ZStack {
-                        Rectangle()
-                            .frame(width: 180, height: 55)
-                            .opacity(0)
-                            .glassEffect(in: .rect(cornerRadius: 50))
-                        
-                        Text("\(workDurationsOfHour) 小时 \(workDurationsOfMinutes) 分钟 ")
+            .safeAreaInset(edge: .top) {
+                ZStack {
+                    Rectangle()
+                        .frame(maxWidth: .infinity, maxHeight: 50)
+                        .opacity(0)
+                        .glassEffect(in: .rect(cornerRadius: 25))
+                    HStack {
+                        Text("记录工时：")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(.primary)
-
+                            .offset(x: 20)
+                        Spacer(minLength: 0)
+                        Text("\(workDurationsOfHour) 小时 \(workDurationsOfMinutes) 分钟 ")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.orange)
+                            .offset(x: -20)
                     }
-                    .padding(.leading, 30)
-
-                    
-                    Spacer(minLength: 0)
-                    
-//                    if isEdit == false {
-//                        HStack {
-//                            Button {
-//                                dismiss()
-//                            } label: {
-//                                Image(systemName: "xmark")
-//                            }.buttonStyle(CustomButtonDismiss())
-//                                .offset(x: -10)
-//                        }
-//                    } else {
-//                        HStack {
-//    //                        Spacer()
-//                            Button {
-//                                workLog.startTime = startTime_
-//                                workLog.endTime = endTime_
-//                                dismiss()
-//                            } label: {
-//                                Image(systemName: "checkmark")
-//                            }.buttonStyle(CustomButtonComfirm())
-//                        }
-//                        .padding(.trailing, 30)
-//                    }
                 }
-                .padding(.bottom, 30)
+                .padding(EdgeInsets(top: 10, leading: 17, bottom: 0, trailing: 17))
             }
-            .ignoresSafeArea()
+        }
+    }
+    
+    private func recompute() {
+        let cal = Calendar.current
+        startTime_ = merge(base: baseDate, clock: startClock, cal: cal)
+
+        var endBase = baseDate
+        if isOvernight { endBase = cal.date(byAdding: .day, value: 1, to: baseDate)! }
+        endTime_ = merge(base: endBase, clock: endClock, cal: cal)
+    }
+
+    private func merge(base: Date, clock: Date, cal: Calendar) -> Date {
+        let d = cal.dateComponents([.year, .month, .day], from: base)
+        let t = cal.dateComponents([.hour, .minute, .second], from: clock)
+        var c = DateComponents()
+        c.year = d.year; c.month = d.month; c.day = d.day
+        c.hour = t.hour; c.minute = t.minute; c.second = t.second ?? 0
+        return cal.date(from: c) ?? base
+    }
+}
+
+//private struct OvernightBadge: View {
+//    var body: some View {
+//        ZStack {
+//            Circle()
+//                .fill(.orange.opacity(0.15))
+//            Circle()
+//                .stroke(.orange, lineWidth: 1.5)
+//            Text("+1")
+//                .font(.caption2).bold()
+//                .foregroundStyle(.orange)
+//        }
+//        .frame(width: 22, height: 22)
+//        .padding(.leading, 2)
+//    }
+//}
+
+private struct OvernightBadge: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [.orange, .yellow, .orange]),
+                        center: .center
+                    ),
+                    lineWidth: 2
+                )
+                .frame(width: 22, height: 22)
+                .shadow(color: .orange.opacity(0.2), radius: 1)
+
+            Image(systemName: "moon.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.orange)
+        }
+        .padding(.leading, 4)
+    }
+}
+
+struct TimeWheel: View {
+    @Binding var date: Date
+    private let hours = Array(0...23)
+    private let minutes = stride(from: 0, through: 59, by: 1).map { $0 }
+
+    var body: some View {
+        let cal = Calendar.current
+        let h = cal.component(.hour, from: date)
+        let m = cal.component(.minute, from: date)
+
+        ZStack {
+            HStack(spacing: 10) {
+                Picker("", selection: Binding(
+                    get: { h },
+                    set: { newH in
+                        date = cal.date(bySettingHour: newH, minute: m, second: 0, of: date) ?? date
+                    })) {
+                    ForEach(hours, id: \.self) { Text(String(format: "%02d", $0)) }
+                }
+                .frame(width: 95, height: 80)
+                .clipped()
+                .pickerStyle(.wheel)
+
+                Picker("", selection: Binding(
+                    get: { m },
+                    set: { newM in
+                        date = cal.date(bySettingHour: h, minute: newM, second: 0, of: date) ?? date
+                    })) {
+                    ForEach(minutes, id: \.self) { Text(String(format: "%02d", $0)) }
+                }
+                .frame(width: 95, height: 80)
+                .clipped()
+                .pickerStyle(.wheel)
+            }
+            .labelsHidden()
+            Text(":").font(.title2).monospaced()
         }
 
     }
@@ -119,4 +262,5 @@ struct LogForm: View {
 #Preview {
     let workLog = WorkLogs(startTime: Date().addingTimeInterval(-28800), endTime: Date())
     LogForm(workLog: workLog, isEdit: true)
+        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
 }
