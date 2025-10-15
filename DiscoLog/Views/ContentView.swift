@@ -86,8 +86,6 @@ struct tabBottomWindowForList: View {
             } label: {
                 Text("新增记录")
                     .foregroundStyle(.orange)
-//                    .font(.title2)
-//                    .fontWeight(.black)
             }
             .padding(.trailing)
             .sheet(item: $modalType) {sheet in
@@ -108,5 +106,5 @@ struct tabBottomWindowForSettings: View {
 #Preview {
     ContentView()
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-        .modelContainer(for: WorkLogs.self, inMemory: true)
+        .modelContainer(PreviewListData.container)
 }
