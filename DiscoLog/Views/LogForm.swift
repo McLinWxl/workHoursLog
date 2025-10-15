@@ -22,6 +22,9 @@ struct LogForm: View {
     @State private var startClock: Date = .now
     @State private var endClock: Date = .now.addingTimeInterval(3600)
     
+    @State private var askDelete = false
+    @State private var revertTask: Task<Void, Never>? = nil
+    
      private var isOvernight: Bool {
          let cal = Calendar.current
          let s = cal.dateComponents([.hour, .minute], from: startClock)
@@ -48,8 +51,8 @@ struct LogForm: View {
             Form {
                 VStack {
                     DatePicker("选择日期", selection: $baseDate, displayedComponents: .date)
-                                   .datePickerStyle(.graphical)
-                                   .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+                        .datePickerStyle(.graphical)
+                        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
                     
                     Divider()
                     
@@ -57,14 +60,12 @@ struct LogForm: View {
                         Text("开始时间")
                             .foregroundStyle(.secondary)
                             .frame(height: 80)
-                            .padding(.leading, 15)
+                            .padding(.leading, 20)
                         Spacer(minLength: 0)
                         TimeWheel(date: $startClock)
                             .padding(.trailing, 15)
                     }
-//                    .frame(height: 80)
-                    
-                    
+                    .offset(y: 10)
                     
                     HStack (alignment: .center) {
                         if isOvernight {
@@ -80,28 +81,13 @@ struct LogForm: View {
                         } else {
                             Text("结束时间")
                                 .foregroundStyle(.secondary)
-                                .padding(.leading, 15)
+                                .padding(.leading, 20)
                             Spacer(minLength: 0)
                         }
                         
                         TimeWheel(date: $endClock)
                             .padding(.trailing, 15)
                     }
-                    //
-//                    VStack(alignment: .leading, spacing: 4) {
-//                        Text("开始：\(startTime_.formatted(.dateTime.year().month().day().hour().minute()))")
-//                        Text("结束：\(endTime_.formatted(.dateTime.year().month().day().hour().minute()))")
-//                            .overlay(alignment: .trailing) {
-//                                if isOvernight {
-//                                    Text("（次日）")
-//                                        .font(.caption)
-//                                        .foregroundStyle(.orange)
-//                                        .padding(.leading, 8)
-//                                }
-//                            }
-//                    }
-//                    .font(.subheadline)
-                    //
                 }
                 .onAppear {
                     baseDate   = Calendar.current.startOfDay(for: startTime_)
@@ -111,18 +97,43 @@ struct LogForm: View {
                 }
                 .onChange(of: baseDate) { recompute() }
                 .onChange(of: startClock) {  recompute() }
-                .onChange(of: endClock) { recompute() }            }
+                .onChange(of: endClock) { recompute() }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(role: .destructive) {
-                        if isEdit == true {
-                            modelContext.delete(workLog)
+                    if isEdit {
+                        Button {
+                            if askDelete {
+                                modelContext.delete(workLog)
+                                try? modelContext.save()
+                                dismiss()
+                            } else {
+                                askDelete = true
+//                                withAnimation(.bouncy) { askDelete = true }
+                                scheduleRevertIfNeeded()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: askDelete ? "trash.fill" : "trash")
+                                if askDelete {
+                                    Text("确认删除")
+                                        .font(.subheadline)
+                                        .bold()
+                                }
+                            }
                         }
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
+                        .tint(.red)
+                    } else {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
                     }
                 }
+            }
+            .onDisappear {
+                // 防止状态泄漏到下次进来
+                askDelete = false
+                revertTask?.cancel()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -143,10 +154,8 @@ struct LogForm: View {
                         .opacity(0)
                         .glassEffect(in: .rect(cornerRadius: 25))
                     HStack {
-                        Text("记录工时：")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.primary)
+                        Text(startTime_, format: .dateTime.year().month().day())
+                            .foregroundStyle(.secondary)
                             .offset(x: 20)
                         Spacer(minLength: 0)
                         Text("\(workDurationsOfHour) 小时 \(workDurationsOfMinutes) 分钟 ")
@@ -158,6 +167,14 @@ struct LogForm: View {
                 }
                 .padding(EdgeInsets(top: 10, leading: 17, bottom: 0, trailing: 17))
             }
+        }
+    }
+    
+    private func scheduleRevertIfNeeded() {
+        revertTask?.cancel()
+        revertTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            withAnimation(.snappy) { askDelete = false }
         }
     }
     
@@ -180,21 +197,6 @@ struct LogForm: View {
     }
 }
 
-//private struct OvernightBadge: View {
-//    var body: some View {
-//        ZStack {
-//            Circle()
-//                .fill(.orange.opacity(0.15))
-//            Circle()
-//                .stroke(.orange, lineWidth: 1.5)
-//            Text("+1")
-//                .font(.caption2).bold()
-//                .foregroundStyle(.orange)
-//        }
-//        .frame(width: 22, height: 22)
-//        .padding(.leading, 2)
-//    }
-//}
 
 private struct OvernightBadge: View {
     var body: some View {
@@ -237,7 +239,7 @@ struct TimeWheel: View {
                     })) {
                     ForEach(hours, id: \.self) { Text(String(format: "%02d", $0)) }
                 }
-                .frame(width: 95, height: 80)
+                .frame(width: 95, height: 90)
                 .clipped()
                 .pickerStyle(.wheel)
 
@@ -248,7 +250,7 @@ struct TimeWheel: View {
                     })) {
                     ForEach(minutes, id: \.self) { Text(String(format: "%02d", $0)) }
                 }
-                .frame(width: 95, height: 80)
+                .frame(width: 95, height: 90)
                 .clipped()
                 .pickerStyle(.wheel)
             }

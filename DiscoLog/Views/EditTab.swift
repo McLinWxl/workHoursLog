@@ -28,13 +28,13 @@ struct EditTab: View {
                 }
             }
             .navigationTitle("工时记录")
-            .background(
-                LinearGradient(gradient: Gradient(colors: [Color.mint.opacity(0.3), Color.orange.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
+//            .background(
+//                LinearGradient(gradient: Gradient(colors: [Color.mint.opacity(0.3), Color.orange.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing)
+//            )
         }
         .sheet(item: $modalType) {sheet in
             sheet
-                .presentationDetents([.height(320),  .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
         .navigationTitle("工时记录")
@@ -96,8 +96,11 @@ struct workLogCard: View {
     }
 }
 
+
+
 #Preview {
-    ContentView()
+    EditTab()
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-        .modelContainer(for: WorkLogs.self, inMemory: true)
+        .modelContainer(PreviewListData.container)
+//        .modelContainer(for: WorkLogs.self, inMemory: true)
 }

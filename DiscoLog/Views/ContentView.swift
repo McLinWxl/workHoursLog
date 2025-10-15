@@ -92,7 +92,7 @@ struct tabBottomWindowForList: View {
             .padding(.trailing)
             .sheet(item: $modalType) {sheet in
                 sheet
-                    .presentationDetents([.height(320),  .large])
+                    .presentationDetents([.medium,  .large])
                     .presentationDragIndicator(.visible)
             }
         }
