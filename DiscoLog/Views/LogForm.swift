@@ -50,7 +50,8 @@ struct LogForm: View {
         NavigationStack {
             Form {
                 VStack {
-                    DatePicker("选择日期", selection: $baseDate, displayedComponents: .date)
+                    DatePicker("选择日期", selection: $baseDate,
+                               in: ...Calendar.current.date(byAdding: .day, value: 3, to: Date())!, displayedComponents: .date)
                         .datePickerStyle(.graphical)
                         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
                     
@@ -99,6 +100,7 @@ struct LogForm: View {
                 .onChange(of: startClock) {  recompute() }
                 .onChange(of: endClock) { recompute() }
             }
+            .offset(y: -30)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isEdit {
@@ -131,7 +133,6 @@ struct LogForm: View {
                 }
             }
             .onDisappear {
-                // 防止状态泄漏到下次进来
                 askDelete = false
                 revertTask?.cancel()
             }
