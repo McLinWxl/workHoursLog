@@ -19,7 +19,12 @@ extension View {
     }
 }
 
-
+extension Color {
+    static var inversePrimary: Color {
+        let scheme = UITraitCollection.current.userInterfaceStyle
+        return scheme == .dark ? .black : .white
+    }
+}
 //Text("Hello")
 //    .font(.title)
 //    .if(condition) { view in

@@ -146,47 +146,93 @@ struct workLogCard: View {
         self.endTime = workLog.endTime
     }
     
+    private var isOvernight: Bool {
+        !Calendar.current.isDate(startTime, inSameDayAs: endTime)
+    }
+    
     var body: some View {
         ZStack {
-            Rectangle()
-//                .foregroundStyle(.ultraThickMaterial)
+            RoundedRectangle(cornerRadius: 17)
                 .frame(height: 125)
-                .opacity(0)
+                .foregroundStyle(
+                    isOvernight
+                    ? LinearGradient(
+                        colors: [
+                            Color.indigo.opacity(0.83),
+                            Color.purple.opacity(0.83)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        colors: [
+                            Color.green.opacity(0.13),
+                            Color.mint.opacity(0.23)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                )
                 .glassEffect(in: .rect(cornerRadius: 17))
-//                .backgroundStyle(.thickMaterial)
                 
-            HStack {
-                VStack (alignment: .leading) {
+            VStack (alignment: .leading, spacing: 17) {
+                HStack {
                     Text(startTime, format: .dateTime.year().month().day())
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(isOvernight ? .white: .primary)
                     
-                    Rectangle()
-                        .fill(.secondary.opacity(0.5))
-                        .frame(height: 2)
-                    
-                    HStack {
-                        VStack {
-                            Text("开始：\(startTime, format: .dateTime.hour().minute())")
-                            Spacer(minLength: 0)
-                            Text("结束：\(endTime, format: .dateTime.hour().minute())")
-                        }
-                        Spacer(minLength: 0)
-                        let workDurations = endTime.timeIntervalSince(startTime)
-                        let workDurationsOfHour = Int(workDurations / 3600)
-                        let workDurationsOfMinutes = (Int(workDurations) % 3600) / 60
-                        
-                        Text(" \(workDurationsOfHour) 小时 \(workDurationsOfMinutes) 分钟 ")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.orange)
+                    Spacer(minLength: 0)
+                    if isOvernight {
+                        Text("夜班")
+//                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.indigo.opacity(0.99))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .glassEffect(in: .rect(cornerRadius: 8))
                     }
                 }
-                .frame(height: 30)
+                
+                
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("开始：\(startTime, format: .dateTime.hour().minute())")
+                            .foregroundStyle(isOvernight ? .white: .primary)
+                        Spacer(minLength: 8)
+                        HStack (alignment: .center, spacing: 8) {
+                            Text("结束：\(endTime, format: .dateTime.hour().minute())")
+                                .foregroundStyle(isOvernight ? .white: .primary)
+                            if isOvernight {
+                                Text("次日")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(Color.indigo.opacity(0.99))
+                                    .foregroundStyle(.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    let workDurations = endTime.timeIntervalSince(startTime)
+                    let workDurationsOfHour = Int(workDurations / 3600)
+                    let workDurationsOfMinutes = (Int(workDurations) % 3600) / 60
+                    
+                    Text(" \(workDurationsOfHour) 小时 \(workDurationsOfMinutes) 分钟 ")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(isOvernight ? .yellow.opacity(0.9)
+ : .orange.opacity(0.9) )
+                }
             }
+            .frame(height: 30)
             .padding(EdgeInsets(top: 7, leading: 20, bottom: 7, trailing: 20))
         }
+        .contentShape(Rectangle())
     }
 }
 
