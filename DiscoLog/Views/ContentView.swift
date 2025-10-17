@@ -14,24 +14,24 @@ struct ContentView: View {
     
     @State private var selectedTab = 0
 
-//    @State private var showingLeft = true
-
     var body: some View {
+        
         TabView(selection: $selectedTab) {
             
-            Tab("Home", systemImage: "house.fill", value: 0) {
-                HomeTab()
-            }
-
+//            Tab("Home", systemImage: "house.fill", value: 0) {
+//                HomeTab()
+//            }
             
-            Tab("Static", systemImage: "clock", value: 1) {
-
-            }
-            
-            Tab("List", systemImage: "house.fill", value: 2) {
+            Tab("工时记录", systemImage: "calendar.day.timeline.leading", value: 2) {
                 EditTab()
                     .navigationTitle("工时记录")
             }
+            
+            Tab("工时统计", systemImage: "chart.xyaxis.line", value: 1) {
+
+            }
+            
+
             
             Tab("Settings", systemImage: "gear", value: 3, role: .search) {
 
@@ -39,22 +39,20 @@ struct ContentView: View {
             
         }
         .tabViewStyle(.sidebarAdaptable)
-        .tabViewBottomAccessory {
-            if selectedTab == 0 {
-                tabBottomWindowForHome()
-            } else if selectedTab == 1 {
-                tabBottomWindowForStatic()
-            } else if selectedTab == 2 {
-                tabBottomWindowForList()
-            } else if selectedTab ==  3 {
-                tabBottomWindowForSettings()
-            }
-            
-        }
-        .tabBarMinimizeBehavior(.onScrollDown)
-//        .onChange(of: showingLeft, initial: true) {
-//            if showingLeft == true && 
+//        .tabViewBottomAccessory {
+//            if selectedTab == 0 {
+//                tabBottomWindowForHome()
+//            } else if selectedTab == 1 {
+//                tabBottomWindowForStatic()
+//            } else if selectedTab == 2 {
+//                tabBottomWindowForList()
+//            } else if selectedTab ==  3 {
+//                tabBottomWindowForSettings()
+//            }
+//            
 //        }
+//        .tabBarMinimizeBehavior(.onScrollDown)
+
         
     }
 
@@ -87,13 +85,11 @@ struct tabBottomWindowForList: View {
             } label: {
                 Text("新增记录")
                     .foregroundStyle(.orange)
-//                    .font(.title2)
-//                    .fontWeight(.black)
             }
             .padding(.trailing)
             .sheet(item: $modalType) {sheet in
                 sheet
-                    .presentationDetents([.height(260), .medium, .large])
+                    .presentationDetents([.medium,  .large])
                     .presentationDragIndicator(.visible)
             }
         }
@@ -108,5 +104,6 @@ struct tabBottomWindowForSettings: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: WorkLogs.self, inMemory: true)
+        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+        .modelContainer(PreviewListData.container)
 }
