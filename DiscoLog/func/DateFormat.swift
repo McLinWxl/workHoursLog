@@ -152,6 +152,17 @@ extension Date {
     }
     
     //New added
+    static func monthsAscending(from firstMonth: Date, to lastMonth: Date) -> [Date] {
+        var arr: [Date] = []
+        var cur = firstMonth.startOfMonth
+        let end = lastMonth.startOfMonth
+        while cur <= end {
+            arr.append(cur)
+            cur = Calendar.current.date(byAdding: .month, value: 1, to: cur)!
+        }
+        return arr
+    }
+    
     static func daysInMonth(year: Int, month: Int) -> [Date] {
         let cal = Calendar.current
         let start = cal.date(from: DateComponents(year: year, month: month, day: 1))!
@@ -163,6 +174,10 @@ extension Date {
             let date = cal.date(from: DateComponents(year: year, month: month, day: day))!
             return date <= today ? date : nil
         }
+    }
+    
+    var startOfNextMonth: Date {
+        Calendar.current.date(byAdding: .month, value: 1, to: startOfMonth)!
     }
 }
 

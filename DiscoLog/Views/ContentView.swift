@@ -28,13 +28,13 @@ struct ContentView: View {
             }
             
             Tab("工时统计", systemImage: "chart.xyaxis.line", value: 1) {
-
+                StaticView()
             }
             
 
             
             Tab("Settings", systemImage: "gear", value: 3, role: .search) {
-
+                SettingsView()
             }
             
         }
@@ -81,7 +81,7 @@ struct tabBottomWindowForList: View {
             
             Spacer(minLength: 0)
             Button {
-                modalType = .addLog
+                modalType = .addLog(defaultDate: Date())
             } label: {
                 Text("新增记录")
                     .foregroundStyle(.orange)
@@ -103,7 +103,12 @@ struct tabBottomWindowForSettings: View {
 }
 
 #Preview {
+    @Previewable @StateObject var userSettings = UserSettings()
+
+    
     ContentView()
+        .environmentObject(userSettings)
+        .preferredColorScheme(userSettings.theme.colorScheme) // ← 全局生效
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
         .modelContainer(PreviewListData.container)
 }
