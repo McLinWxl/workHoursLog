@@ -28,6 +28,8 @@ struct DiscoLogApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+
                 .environmentObject(userSettings)
         }
         .modelContainer(sharedModelContainer)

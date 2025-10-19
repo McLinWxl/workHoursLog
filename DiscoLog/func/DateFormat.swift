@@ -10,38 +10,45 @@ import SwiftUI
 
 extension Date {
     static var firstDayOfWeek = Calendar.current.firstWeekday
+//    static var capitalizedFirstLettersOfWeekdays: [String] {
+//        let calendar = Calendar.current
+//        //           let weekdays = calendar.shortWeekdaySymbols
+//        
+//        //           return weekdays.map { weekday in
+//        //               guard let firstLetter = weekday.first else { return "" }
+//        //               return String(firstLetter).capitalized
+//        //           }
+//        // Adjusted for the different weekday starts
+//        var weekdays = calendar.shortWeekdaySymbols
+//        if firstDayOfWeek > 1 {
+//            for _ in 1..<firstDayOfWeek {
+//                if let first = weekdays.first {
+//                    weekdays.append(first)
+//                    weekdays.removeFirst()
+//                }
+//            }
+//        }
+//        return weekdays.map { $0.capitalized }
+//    }
     static var capitalizedFirstLettersOfWeekdays: [String] {
-        let calendar = Calendar.current
-        //           let weekdays = calendar.shortWeekdaySymbols
-        
-        //           return weekdays.map { weekday in
-        //               guard let firstLetter = weekday.first else { return "" }
-        //               return String(firstLetter).capitalized
-        //           }
-        // Adjusted for the different weekday starts
-        var weekdays = calendar.shortWeekdaySymbols
-        if firstDayOfWeek > 1 {
-            for _ in 1..<firstDayOfWeek {
-                if let first = weekdays.first {
-                    weekdays.append(first)
-                    weekdays.removeFirst()
-                }
-            }
-        }
-        return weekdays.map { $0.capitalized }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "zh-Hans-CN")
+        return df.veryShortStandaloneWeekdaySymbols
     }
        
-       static var fullMonthNames: [String] {
-           let dateFormatter = DateFormatter()
-           dateFormatter.locale = Locale.current
+   static var fullMonthNames: [String] {
+       let dateFormatter = DateFormatter()
+       
+       //TODO:
+       dateFormatter.locale = Locale(identifier: "zh-Hans-CN")
 
-           return (1...12).compactMap { month in
-               dateFormatter.setLocalizedDateFormatFromTemplate("MMMM")
-               let date = Calendar.current.date(from: DateComponents(year: 2000, month: month, day: 1))
-               return date.map { dateFormatter.string(from: $0) }
-           }
+       return (1...12).compactMap { month in
+           dateFormatter.setLocalizedDateFormatFromTemplate("MMMM")
+           let date = Calendar.current.date(from: DateComponents(year: 2000, month: month, day: 1))
+           return date.map { dateFormatter.string(from: $0) }
        }
-    
+   }
+
     var startOfMonth: Date {
         Calendar.current.dateInterval(of: .month, for: self)!.start
     }
@@ -143,5 +150,36 @@ extension Date {
         let randomDate = threeMonthsAgo.addingTimeInterval(randomTimeInterval)
         return randomDate
     }
+    
+    //New added
+    static func monthsAscending(from firstMonth: Date, to lastMonth: Date) -> [Date] {
+        var arr: [Date] = []
+        var cur = firstMonth.startOfMonth
+        let end = lastMonth.startOfMonth
+        while cur <= end {
+            arr.append(cur)
+            cur = Calendar.current.date(byAdding: .month, value: 1, to: cur)!
+        }
+        return arr
+    }
+    
+    static func daysInMonth(year: Int, month: Int) -> [Date] {
+        let cal = Calendar.current
+        let start = cal.date(from: DateComponents(year: year, month: month, day: 1))!
+        let range = cal.range(of: .day, in: .month, for: start)!
+        
+        let today = Date().startOfDay
+        
+        return range.compactMap { day -> Date? in
+            let date = cal.date(from: DateComponents(year: year, month: month, day: day))!
+            return date <= today ? date : nil
+        }
+    }
+    
+    var startOfNextMonth: Date {
+        Calendar.current.date(byAdding: .month, value: 1, to: startOfMonth)!
+    }
 }
+
+
 

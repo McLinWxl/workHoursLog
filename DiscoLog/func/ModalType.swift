@@ -8,8 +8,9 @@
 import SwiftUI
 
 enum ModalType: View, Identifiable, Equatable {
-    case addLog
+    case addLog(defaultDate: Date)
     case editLog(WorkLogs)
+    
     
     var id: String {
         switch self {
@@ -20,10 +21,17 @@ enum ModalType: View, Identifiable, Equatable {
         }
     }
     
+    @ViewBuilder
     var body: some View{
+
         switch self {
-        case .addLog:
-            let workLog = WorkLogs(startTime: Date().addingTimeInterval(-28800), endTime: Date())
+        case .addLog(let defaultDate):
+//            let calendar = Calendar.current
+//            let startTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate)!
+//            let endTime   = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: defaultDate)!
+            @StateObject var userSettings = UserSettings()
+
+            let workLog = WorkLogs(startTime: userSettings.start(on: defaultDate), endTime: userSettings.end(on: defaultDate))
             LogForm(workLog: workLog, isEdit: false)
         case .editLog(let Log):
             LogForm(workLog: Log, isEdit: true)
