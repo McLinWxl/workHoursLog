@@ -15,28 +15,61 @@ enum LogFilterMode: String, CaseIterable, Identifiable {
 }
 
 struct EditTab: View {
+    @Query(sort: [SortDescriptor(\WorkLogs.startTime, order: .forward)])
+    private var allLogs: [WorkLogs]
+
     @State private var selectedYear = Date().yearInt
     @State private var selectedMonth = Date().monthInt
     @State private var showFilterPanel = false
     
     @State private var modalType: ModalType?
-
+    
 
     var body: some View {
+        let today = Date().startOfDay
+        let firstMonth = allLogs.first?.startTime.startOfMonth ?? today.startOfMonth
+        let monthOptions = Date.monthsAscending(from: firstMonth, to: today)
+
         NavigationStack {
             EditList(year: selectedYear, month: selectedMonth)
                 .navigationTitle("\(String(selectedYear))年\(String(selectedMonth))月")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            withAnimation(.snappy) { showFilterPanel.toggle() }
+                        Menu {
+                            Button {
+                                selectedYear = Date().yearInt
+                                selectedMonth = Date().monthInt
+                            } label: {
+                                Label("回到本月", systemImage: "arrow.uturn.left")
+                            }
+
+                            // 分组列出所有可选月（按年分组）
+                            let grouped = Dictionary(grouping: monthOptions, by: { $0.yearInt })
+                            ForEach(grouped.keys.sorted(by: >), id: \.self) { y in
+                                Section("\(String(y))年") {
+                                    ForEach(grouped[y]!.sorted(by: { $0.monthInt > $1.monthInt }), id: \.self) { m in
+                                        Button {
+                                            selectedYear = m.yearInt
+                                            selectedMonth = m.monthInt
+                                        } label: {
+                                            HStack {
+                                                Text("\(String(format: "%02d", m.monthInt)) 月")
+                                                if m.yearInt == selectedYear && m.monthInt == selectedMonth {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         } label: {
-                            Label("筛选", systemImage: "line.3.horizontal.decrease")
+                            Label("选择年月", systemImage: "calendar")
                         }
                     }
+
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            modalType = .addLog
+                            modalType = .addLog(defaultDate: Date())
                         } label: {
                             Label("添加", systemImage: "square.and.pencil")
                         }
@@ -47,78 +80,8 @@ struct EditTab: View {
                         .presentationDetents([.medium,  .large])
                         .presentationDragIndicator(.visible)
                 }
-                .overlay(alignment: .top) {
-                    if showFilterPanel {
-                        ZStack(alignment: .top) {
-                            Color.black.opacity(0.001)
-                                .ignoresSafeArea()
-                                .onTapGesture { withAnimation(.snappy) { showFilterPanel = false } }
-
-                            MonthFilterPanel(
-                                year: $selectedYear,
-                                month: $selectedMonth,
-                            )
-                            .padding(.horizontal, 16)
-//                            .padding(.top, 8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-                    }
-                }
                 .animation(.snappy, value: showFilterPanel)
         }
-    }
-}
-
-private struct MonthFilterPanel: View {
-    @Binding var year: Int
-    @Binding var month: Int
-    
-    private let years  = Array(2020...Date().yearInt)
-    private let months = Array(1...12)
-
-    var body: some View {
-        VStack {
-            HStack {
-                Spacer(minLength: 0)
-                Button("回到当月") {
-                    year = Date().yearInt
-                    month = Date().monthInt
-                }
-                .foregroundStyle(.blue)
-                .buttonStyle(.glass)
-            }
-            HStack(spacing: 12) {
-                
-                Picker("年", selection: $year) {
-                    ForEach(years, id: \.self) { Text("\($0)年") }
-                }
-                .pickerStyle(.wheel)
-                .labelsHidden()
-                .frame(maxHeight: 130)
-
-                Picker("月", selection: $month) {
-                    if year == Date().yearInt
-                    {
-                        ForEach(Array(1...Date().monthInt), id: \.self) { m in
-                            Text(String(format: "%02d月", m)).tag(m)
-                        }
-                    } else {
-                        ForEach(months, id: \.self) { m in
-                            Text(String(format: "%02d月", m)).tag(m)
-                        }
-                    }
-
-                }
-                .pickerStyle(.wheel)
-                .labelsHidden()
-                .frame(maxHeight: 130)
-            }
-        }
-        .padding(EdgeInsets(top: 17, leading: 17, bottom: 0, trailing: 17))
-//        .glassEffect(in: .rect(cornerRadius: 20))
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.15)))
-        .shadow(radius: 10, y: 6)
     }
 }
 
@@ -147,13 +110,17 @@ private struct EditList: View {
         let grouped = Dictionary(grouping: workLogs, by: { $0.startTime.startOfDay })
         
         ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 2)) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2)) {
 
                 ForEach(days, id: \.self) { day in
                     let logsOfDay = (grouped[day] ?? []).sorted { $0.startTime < $1.startTime }
                     
                         if logsOfDay.isEmpty {
                             restCard(startTime: day)
+                                .onTapGesture {
+                                    modalType = .addLog(defaultDate: day)
+                                }
+                                .padding(.vertical, 1)
 //                                .frame(width: 120)
                         } else {
                             ForEach(logsOfDay) { log in
@@ -161,10 +128,12 @@ private struct EditList: View {
                                     .onTapGesture {
                                         modalType = .editLog(log)
                                     }
+                                    .padding(.vertical, 1)
                             }
                         }
                 }
             }
+            .padding(.horizontal, 10)
         }
         .sheet(item: $modalType) { sheet in
             sheet
@@ -203,7 +172,13 @@ struct restCard: View {
                                    , endPoint: .bottomTrailing
                       )
                 )
-                .glassEffect(in: .rect(cornerRadius: 17))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17)
+                        .stroke(Color.white.opacity(0.8), lineWidth: 2)
+                )
+                .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
+//                .glassEffect(in: .rect(cornerRadius: 17))
             
             VStack{
                 HStack {
@@ -288,7 +263,13 @@ struct workLogCard: View {
                         endPoint: .bottomTrailing
                       )
                 )
-                .glassEffect(in: .rect(cornerRadius: 17))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17)
+                        .stroke(Color.white.opacity(0.8), lineWidth: 2)
+                )
+                .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
+//                .glassEffect(in: .rect(cornerRadius: 17))
                 
             VStack (alignment: .trailing) {
                 HStack {
@@ -340,7 +321,9 @@ struct workLogCard: View {
                             .font(.callout)
                             .foregroundStyle(isOvernight ? Color(red: 0.85, green: 0.85, blue: 0.90, opacity: 1.0): Color(red: 0.35, green: 0.33, blue: 0.30, opacity: 1.0))
                         Image(systemName: "chevron.right.dotted.chevron.right")
-                            .font(.callout)
+                            .frame(maxWidth: 1)
+                            .offset(x: -1)
+                            .font(.caption2)
                             .foregroundStyle(isOvernight ? Color(red: 0.85, green: 0.85, blue: 0.90, opacity: 1.0): Color(red: 0.35, green: 0.33, blue: 0.30, opacity: 1.0))
                         HStack (alignment: .center, spacing: 8) {
                             Text("\(endTime, format: .dateTime.hour().minute())")

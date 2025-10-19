@@ -25,6 +25,21 @@ extension Color {
         return scheme == .dark ? .black : .white
     }
 }
+
+extension Collection {
+    /// 将集合按 size 切成等份（最后一段可短）
+    func chunked(into size: Int) -> [[Element]] {
+        precondition(size > 0, "size 必须大于 0")
+        var result: [[Element]] = []
+        var idx = startIndex
+        while idx != endIndex {
+            let end = index(idx, offsetBy: size, limitedBy: endIndex) ?? endIndex
+            result.append(Array(self[idx..<end]))
+            idx = end
+        }
+        return result
+    }
+}
 //Text("Hello")
 //    .font(.title)
 //    .if(condition) { view in
