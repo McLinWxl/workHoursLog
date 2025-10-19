@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum ModalType: View, Identifiable, Equatable {
+enum ModalType: Identifiable, Equatable {
     case addLog(defaultDate: Date)
     case editLog(WorkLogs)
     
@@ -21,20 +21,37 @@ enum ModalType: View, Identifiable, Equatable {
         }
     }
     
-    @ViewBuilder
-    var body: some View{
+//    @ViewBuilder
+//    var body: some View{
+//
+//        switch self {
+//        case .addLog(let defaultDate):
+//
+//            @StateObject var userSettings = UserSettings()
+//
+//            let workLog = WorkLogs(startTime: userSettings.start(on: defaultDate), endTime: userSettings.end(on: defaultDate))
+//            LogForm(workLog: workLog, isEdit: false)
+//        case .editLog(let Log):
+//            LogForm(workLog: Log, isEdit: true)
+//        }
+//    }
+}
 
-        switch self {
+struct ModalSheetView: View {
+    let modal: ModalType
+    @EnvironmentObject var userSettings: UserSettings
+
+    var body: some View {
+        switch modal {
         case .addLog(let defaultDate):
-//            let calendar = Calendar.current
-//            let startTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate)!
-//            let endTime   = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: defaultDate)!
-            @StateObject var userSettings = UserSettings()
-
-            let workLog = WorkLogs(startTime: userSettings.start(on: defaultDate), endTime: userSettings.end(on: defaultDate))
+            // 用环境里的 settings 生成开始/结束时间
+            let start = userSettings.start(on: defaultDate)
+            let end   = userSettings.end(on: defaultDate)
+            let workLog = WorkLogs(startTime: start, endTime: end)
             LogForm(workLog: workLog, isEdit: false)
-        case .editLog(let Log):
-            LogForm(workLog: Log, isEdit: true)
+
+        case .editLog(let log):
+            LogForm(workLog: log, isEdit: true)
         }
     }
 }

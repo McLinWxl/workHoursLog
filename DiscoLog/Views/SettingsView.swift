@@ -8,9 +8,21 @@
 import SwiftUI
 import SwiftData
 
+struct AlertItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+}
+
 struct SettingsView: View {
     @EnvironmentObject var settings: UserSettings
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var systemScheme
+    
+    @EnvironmentObject var modelStore: ModelStore
+
+    @State private var alertItem: AlertItem?
+
 
     // 读取所有日志用于统计
     @Query(sort: [SortDescriptor(\WorkLogs.startTime)]) private var allLogs: [WorkLogs]
@@ -59,6 +71,21 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+                
+                // iCloud
+                Section(header: Text("数据同步")) {
+                    Toggle(isOn: Binding(
+                        get: { settings.iCloudSyncEnabled },
+                        set: { newValue in Task { await toggleCloud(newValue) } }
+                    )) {
+                        Label("iCloud 同步", systemImage: "cloud")
+                    }
+                    Text("首次开启，会有短暂卡顿")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                
+                
 
                 // 偏好设置
                 Section(header: Text("记录偏好")) {
@@ -87,19 +114,41 @@ struct SettingsView: View {
                 }
 
                 // 恢复默认
-                Section {
-                    Button(role: .destructive) {
-                        settings.theme = .system
-                        settings.defaultStart = UserSettings.makeTime(hour: 9, minute: 0)
-                        settings.defaultEnd   = UserSettings.makeTime(hour: 18, minute: 0)
-                    } label: {
-                        Text("恢复默认设置")
-                    }
-                }
+//                Section {
+//                    Button(role: .destructive) {
+//                        settings.theme = .system
+//                        settings.defaultStart = UserSettings.makeTime(hour: 9, minute: 0)
+//                        settings.defaultEnd   = UserSettings.makeTime(hour: 18, minute: 0)
+//                    } label: {
+//                        Text("恢复默认设置")
+//                    }
+//                }
+            }
+            
             }
             .preferredColorScheme(settings.theme.colorScheme)
             .navigationTitle("设置")
             
+        }
+
+    @MainActor
+    private func toggleCloud(_ on: Bool) async {
+        do {
+            // 1) 立刻把正在编辑的改动落盘，避免丢失
+            try modelContext.save()
+            // 可选：暂时关 autosave，避免切换中再触发写入
+            let oldAutosave = modelContext.autosaveEnabled
+            modelContext.autosaveEnabled = false
+            defer { modelContext.autosaveEnabled = oldAutosave }
+
+            // 2) 切换容器（内部做迁移与合并）
+            try await modelStore.switchCloud(to: on)
+
+            // 3) 记录开关状态
+            settings.iCloudSyncEnabled = on
+
+        } catch {
+            alertItem = .init(title: "切换失败", message: error.localizedDescription)
         }
     }
 
@@ -172,29 +221,6 @@ struct AboutView: View {
             
             .listRowBackground(Color.clear)
             
-//            Section("作者声明") {
-//                HStack {
-//                    Text("免费")
-//                    Spacer(minLength: 0)
-//                    Text("支持性内购不影响功能和体验")
-//                        .foregroundStyle(.secondary)
-//                }
-//                
-//                HStack {
-//                    Text("无广告")
-//                    Spacer(minLength: 0)
-//                    Text("不添加任何形式的广告")
-//                        .foregroundStyle(.secondary)
-//                }
-//                
-//                HStack {
-//                    Text("持续更新")
-//                    Spacer(minLength: 0)
-//                    Text("数据备份及多设备同步")
-//                        .foregroundStyle(.secondary)
-//                }
-//            }
-            
             
             Section("后续计划") {
                 HStack {
@@ -208,13 +234,6 @@ struct AboutView: View {
                     Text("更多自定义设置")
                     Spacer(minLength: 0)
                     Text("自动记录、夜班分界")
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack {
-                    Text("iCloud支持")
-                    Spacer(minLength: 0)
-                    Text("数据备份及多设备同步")
                         .foregroundStyle(.secondary)
                 }
             }

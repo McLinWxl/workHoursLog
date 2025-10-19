@@ -8,30 +8,26 @@
 import SwiftUI
 import SwiftData
 
+
 @main
 struct DiscoLogApp: App {
-    @StateObject var userSettings = UserSettings()
-    
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            WorkLogs.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    @StateObject private var userSettings = UserSettings()
+    @StateObject private var modelStore: ModelStore
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-    
+    init() {
+        // 按“上次选择”初始化容器（默认 false）
+        let settings = UserSettings()
+        _userSettings = StateObject(wrappedValue: settings)
+        _modelStore   = StateObject(wrappedValue: ModelStore(cloudEnabled: settings.iCloudSyncEnabled))
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-
+                .environmentObject(modelStore)
                 .environmentObject(userSettings)
+                .preferredColorScheme(userSettings.theme.colorScheme)
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(modelStore.container) // ← 使用可切换的容器
     }
 }
