@@ -1,0 +1,150 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.73047,0.89355,0.86670,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "display-p3:0.07123,0.08191,0.19238,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.73633,0.89990,0.87402,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:0.75000,1.00000"
+              }
+            }
+          ],
+          "glass" : false,
+          "image-name" : "Clock.png",
+          "name" : "Clock",
+          "position" : {
+            "scale" : 0.88,
+            "translation-in-points" : [
+              0.14897781759815643,
+              -31
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 0.9,
+        "translation-in-points" : [
+          0,
+          2
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "display-p3:0.07220,0.08154,0.19202,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.73633,0.89990,0.87158,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-gray:0.75000,1.00000"
+              }
+            }
+          ],
+          "glass" : false,
+          "image-name" : "Subtract.png",
+          "name" : "Subtract",
+          "position" : {
+            "scale" : 1.85,
+            "translation-in-points" : [
+              0,
+              -18
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "Rectangle 9 2.png",
+          "name" : "Rectangle 9 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -1,
+              365
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "image-name" : "Rectangle 8 2.png",
+          "name" : "Rectangle 8 2",
+          "position" : {
+            "scale" : 0.7,
+            "translation-in-points" : [
+              -77,
+              297
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "image-name" : "Rectangle 7 2.png",
+          "name" : "Rectangle 7 2",
+          "position" : {
+            "scale" : 0.85,
+            "translation-in-points" : [
+              -39.29042316732284,
+              230
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 0.9,
+        "translation-in-points" : [
+          0,
+          12
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

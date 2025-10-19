@@ -14,7 +14,7 @@ struct CustomButtonComfirm: ButtonStyle {
             .font(.title2.bold())
             .foregroundStyle(.green)
             .padding()
-            .glassEffect(.regular.tint(.green.opacity(0.25)).interactive())
+//            .glassEffect(.regular.tint(.green.opacity(0.25)).interactive())
     }
 }
 
@@ -25,7 +25,7 @@ struct CustomButtonDismiss: ButtonStyle {
             .font(.title2.bold())
             .foregroundStyle(.red)
             .padding()
-            .glassEffect(.regular.tint(.orange.opacity(0.3)).interactive())
+//            .glassEffect(.regular.tint(.orange.opacity(0.3)).interactive())
     }
 }
 

@@ -88,7 +88,8 @@ struct tabBottomWindowForList: View {
             }
             .padding(.trailing)
             .sheet(item: $modalType) {sheet in
-                sheet
+                ModalSheetView(modal: sheet)
+
                     .presentationDetents([.medium,  .large])
                     .presentationDragIndicator(.visible)
             }
@@ -110,5 +111,9 @@ struct tabBottomWindowForSettings: View {
         .environmentObject(userSettings)
         .preferredColorScheme(userSettings.theme.colorScheme) // ← 全局生效
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-        .modelContainer(PreviewListData.container)
+//        .modelContainer(for: PreviewListData.container, inMemory: true)
+//        .onAppear {
+//            // 仅注册接收远程推送；静默推送不需要提示用户授权
+//            UIApplication.shared.registerForRemoteNotifications()
+//        }
 }

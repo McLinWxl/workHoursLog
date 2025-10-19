@@ -76,7 +76,7 @@ struct EditTab: View {
                     }
                 }
                 .sheet(item: $modalType) {sheet in
-                    sheet
+                    ModalSheetView(modal: sheet)
                         .presentationDetents([.medium,  .large])
                         .presentationDragIndicator(.visible)
                 }
@@ -136,7 +136,7 @@ private struct EditList: View {
             .padding(.horizontal, 10)
         }
         .sheet(item: $modalType) { sheet in
-            sheet
+            ModalSheetView(modal: sheet)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -360,5 +360,5 @@ struct workLogCard: View {
 #Preview {
     EditTab()
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-        .modelContainer(PreviewListData.container)
+//        .modelContainer(for: PreviewListData.container, inMemory: true)
 }
