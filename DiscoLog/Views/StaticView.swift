@@ -125,7 +125,7 @@ struct StaticView: View {
                 }
             }
             .sheet(item: $modalType) { sheet in
-                sheet
+                ModalSheetView(modal: sheet)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
@@ -541,6 +541,6 @@ fileprivate struct DayCell: View {
     NavigationStack {
         StaticView()
             .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-            .modelContainer(PreviewListData.container)
+//            .modelContainer(for: PreviewListData.container, inMemory: true)
     }
 }
