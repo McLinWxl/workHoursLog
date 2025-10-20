@@ -136,17 +136,13 @@ struct SettingsView: View {
     @MainActor
     private func toggleCloud(_ on: Bool) async {
         do {
-            // 1) 立刻把正在编辑的改动落盘，避免丢失
             try modelContext.save()
-            // 可选：暂时关 autosave，避免切换中再触发写入
             let oldAutosave = modelContext.autosaveEnabled
             modelContext.autosaveEnabled = false
             defer { modelContext.autosaveEnabled = oldAutosave }
 
-            // 2) 切换容器（内部做迁移与合并）
             try await modelStore.switchCloud(to: on)
 
-            // 3) 记录开关状态
             settings.iCloudSyncEnabled = on
 
         } catch {
@@ -245,7 +241,12 @@ struct AboutView: View {
                 Text("欢迎任何意见或建议 - wangxinlin525@gmail.com")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                Text("开源地址：https://github.com/McLinWxl/workHoursLog")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
+            
+            
         }
         .navigationTitle("关于工时记")
     }
