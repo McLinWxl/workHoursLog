@@ -23,12 +23,22 @@ struct ContentView: View {
 //            }
             
             Tab("工时记录", systemImage: "calendar.day.timeline.leading", value: 2) {
-                EditTab()
-                    .navigationTitle("工时记录")
+                if items.isEmpty {
+                    EmptyView()
+                        .navigationTitle("Log")
+                } else {
+                    EditTab()
+                }
+                
             }
             
             Tab("工时统计", systemImage: "chart.xyaxis.line", value: 1) {
-                StaticView()
+                
+                if items.isEmpty {
+                    EmptyView()
+                } else {
+                    StaticView()
+                }
             }
             
 
@@ -105,15 +115,14 @@ struct tabBottomWindowForSettings: View {
 
 #Preview {
     @Previewable @StateObject var userSettings = UserSettings()
+    @Previewable @StateObject var store = ModelStore(cloudEnabled: false)
 
-    
-    ContentView()
-        .environmentObject(userSettings)
-        .preferredColorScheme(userSettings.theme.colorScheme) // ← 全局生效
-        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-//        .modelContainer(for: PreviewListData.container, inMemory: true)
-//        .onAppear {
-//            // 仅注册接收远程推送；静默推送不需要提示用户授权
-//            UIApplication.shared.registerForRemoteNotifications()
-//        }
+    NavigationStack {
+        ContentView()
+            .environmentObject(userSettings)
+            .environmentObject(store)
+            .preferredColorScheme(userSettings.theme.colorScheme)
+            .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+    }
+    .modelContainer(PreviewData.container)          
 }

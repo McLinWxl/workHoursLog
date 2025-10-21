@@ -1,13 +1,15 @@
 {
-  "fill" : "system-light",
+  "fill" : {
+    "solid" : "display-p3:0.73047,0.89355,0.86670,1.00000"
+  },
   "groups" : [
     {
       "hidden" : false,
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "Group 37.png",
-          "name" : "Group 37",
+          "image-name" : "Group 26.png",
+          "name" : "Group 26",
           "opacity-specializations" : [
             {
               "appearance" : "dark",
@@ -17,14 +19,7 @@
               "appearance" : "tinted",
               "value" : 0
             }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0,
-              -16
-            ]
-          }
+          ]
         }
       ],
       "shadow" : {
@@ -41,8 +36,8 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "Group 38.png",
-          "name" : "Group 38",
+          "image-name" : "Group 27.png",
+          "name" : "Group 27",
           "opacity-specializations" : [
             {
               "value" : 0
@@ -55,14 +50,7 @@
               "appearance" : "tinted",
               "value" : 1
             }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0,
-              -16
-            ]
-          }
+          ]
         }
       ],
       "shadow" : {
