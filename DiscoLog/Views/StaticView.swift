@@ -140,29 +140,30 @@ fileprivate struct YearHeatmap2Rows: View {
     let allLogs: [WorkLogs]
 
     var body: some View {
-        let screenWidth = UIScreen.main.bounds.width
 
-        
-        VStack(alignment: .leading, spacing: 10) {
-            Text("\(String(year)) 年工时热力图")
-                .font(.headline.bold())
-                .foregroundStyle(.primary)
+        GeometryReader { geo in
+            let screenWidth = geo.size.width
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(String(year)) 年工时热力图")
+                    .font(.headline.bold())
+                    .foregroundStyle(.primary)
 
-            
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.clear)
-                    .frame(height: screenWidth / 1.8 + 15)
-                    .glassEffect(in: .rect(cornerRadius: 12))
                 
-                VStack(spacing: 0) {
-                    HalfYearHeatmap(year: year, halfIndex: 0, allLogs: allLogs) // 1–6 月
-                    HalfYearHeatmap(year: year, halfIndex: 1, allLogs: allLogs) // 7–12 月
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.clear)
+                        .frame(height: screenWidth / 1.8 + 15)
+                        .glassEffect(in: .rect(cornerRadius: 12))
+                    
+                    VStack(spacing: 0) {
+                        HalfYearHeatmap(year: year, halfIndex: 0, allLogs: allLogs) // 1–6 月
+                        HalfYearHeatmap(year: year, halfIndex: 1, allLogs: allLogs) // 7–12 月
+                    }
+                    .offset(y: 20)
+                    .padding(.horizontal, 5)
+    //                .frame(height: screenWidth/2)
+    //                .glassEffect(in: .rect(cornerRadius: 12))
                 }
-                .offset(y: 20)
-                .padding(.horizontal, 5)
-//                .frame(height: screenWidth/2)
-//                .glassEffect(in: .rect(cornerRadius: 12))
             }
         }
     }

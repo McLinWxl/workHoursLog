@@ -220,21 +220,21 @@ struct AboutView: View {
             .listRowBackground(Color.clear)
             
             
-            Section("后续计划") {
-                HStack {
-                    Text("数据冲突的解决")
-                    Spacer(minLength: 0)
-                    Text("工时记录不重叠")
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack {
-                    Text("更多自定义设置")
-                    Spacer(minLength: 0)
-                    Text("自动记录、夜班分界")
-                        .foregroundStyle(.secondary)
-                }
-            }
+//            Section("后续计划") {
+//                HStack {
+//                    Text("数据冲突的解决")
+//                    Spacer(minLength: 0)
+//                    Text("工时记录不重叠")
+//                        .foregroundStyle(.secondary)
+//                }
+//                
+//                HStack {
+//                    Text("更多自定义设置")
+//                    Spacer(minLength: 0)
+//                    Text("自动记录、夜班分界")
+//                        .foregroundStyle(.secondary)
+//                }
+//            }
 
             Section("感谢支持") {
 //                Text("感谢使用工时记")

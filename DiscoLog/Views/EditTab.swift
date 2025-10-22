@@ -109,31 +109,28 @@ private struct EditList: View {
         let days = Date.daysInMonth(year: year, month: month).reversed()
         let grouped = Dictionary(grouping: workLogs, by: { $0.startTime.startOfDay })
         
-        ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2)) {
+        let columns = Array(repeating: GridItem(.flexible()), count: 2)
 
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 8) {           // ← 行间距
                 ForEach(days, id: \.self) { day in
-                    let logsOfDay = (grouped[day] ?? []).sorted { $0.startTime < $1.startTime }
-                    
-                        if logsOfDay.isEmpty {
-                            restCard(startTime: day)
-                                .onTapGesture {
-                                    modalType = .addLog(defaultDate: day)
-                                }
-                                .padding(.vertical, 1)
-//                                .frame(width: 120)
-                        } else {
-                            ForEach(logsOfDay) { log in
-                                workLogCard(workLog: log)
-                                    .onTapGesture {
-                                        modalType = .editLog(log)
-                                    }
-                                    .padding(.vertical, 1)
-                            }
+                    let logs = (grouped[day] ?? []).sorted { $0.startTime < $1.startTime }
+
+//                    VStack(alignment: .leading, spacing: 10) {   // ← 同一天内的卡片间距
+                    if logs.isEmpty {
+                        restCard(startTime: day)
+                            .onTapGesture { modalType = .addLog(defaultDate: day) }
+                    } else {
+                        ForEach(logs) { log in
+                            workLogCard(workLog: log)
+                                .onTapGesture { modalType = .editLog(log) }
                         }
+                    }
+//                    }
+//                    .padding(.horizontal, 0)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 7)
         }
         .sheet(item: $modalType) { sheet in
             ModalSheetView(modal: sheet)
@@ -151,19 +148,19 @@ private struct EditList: View {
 }
 
 struct restCard: View {
+    
     private var startTime: Date
+    private let cardCorner: CGFloat = 10
+
     
     init(startTime: Date) {
         self.startTime = startTime
     }
     
-    private let cardMaxHeight: CGFloat = UIScreen.main.bounds.width / 2 - 40
-    private let cardMaxWidth: CGFloat = UIScreen.main.bounds.width / 2 - 20
-    
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 17)
-                .frame(maxWidth: cardMaxWidth, maxHeight: cardMaxHeight)
+            RoundedRectangle(cornerRadius: cardCorner)
+//                .frame(width: width)
                 .foregroundStyle(
                     LinearGradient(colors: [Color(red: 0.83, green: 0.92, blue: 0.90, opacity: 1.0),
                                             Color(red: 0.72, green: 0.83, blue: 0.80, opacity: 1.0)
@@ -173,12 +170,12 @@ struct restCard: View {
                       )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 17)
+                    RoundedRectangle(cornerRadius: cardCorner)
                         .stroke(Color.white.opacity(0.8), lineWidth: 2)
                 )
                 .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
                 .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
-//                .glassEffect(in: .rect(cornerRadius: 17))
+
             
             VStack{
                 HStack {
@@ -187,12 +184,6 @@ struct restCard: View {
                         .fontWeight(.bold)
                         .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.13, opacity: 1.0))
                         .frame(width: 50)
-////                    Spacer(minLength: 0)
-//                    Text(startTime, format: .dateTime.weekday(.abbreviated))
-//                        .font(.headline)
-////                        .foregroundStyle(isOvernight ? .white.opacity(0.9) : .secondary)
-//                        .padding(.leading, 2)
-//                        .foregroundStyle(.red)
                     
                     Spacer(minLength: 0)
 
@@ -215,10 +206,14 @@ struct restCard: View {
                         .bold()
                 }
             }
-            .frame(maxWidth: cardMaxWidth, maxHeight: cardMaxHeight)
-            .padding(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20))
+//            .frame(width: width)
+            .padding(EdgeInsets(top: 10, leading: 15, bottom: 10, trailing: 15))
         }
+        
         .contentShape(Rectangle())
+
+
+
     }
 }
 
@@ -228,8 +223,8 @@ struct workLogCard: View {
     private var startTime: Date
     private var endTime: Date
     
-    private let cardMaxHeight: CGFloat = UIScreen.main.bounds.width / 2 - 20
-    private let cardMaxWidth: CGFloat = UIScreen.main.bounds.width / 2 - 20
+    private let cardCorner: CGFloat = 10
+    
     init(workLog: WorkLogs) {
         self.workLog = workLog
         self.startTime = workLog.startTime
@@ -241,9 +236,11 @@ struct workLogCard: View {
     }
     
     var body: some View {
+        
+
         ZStack {
-            RoundedRectangle(cornerRadius: 17)
-                .frame(maxWidth: cardMaxWidth, maxHeight: cardMaxHeight)
+            RoundedRectangle(cornerRadius: cardCorner)
+//                .frame(maxWidth: cardMaxWidth, maxHeight: .infinity)
                 .foregroundStyle(
                     isOvernight
                     ? LinearGradient(
@@ -264,7 +261,7 @@ struct workLogCard: View {
                       )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 17)
+                    RoundedRectangle(cornerRadius: cardCorner)
                         .stroke(Color.white.opacity(0.8), lineWidth: 2)
                 )
                 .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
@@ -284,8 +281,8 @@ struct workLogCard: View {
                     if isOvernight {
                         Image(systemName: "moon.fill")
                             .font(.callout)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 4)
                             .foregroundStyle(.indigo)
                             .background(Color(red: 0.67, green: 0.61, blue: 0.86, opacity: 1.0))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -348,10 +345,11 @@ struct workLogCard: View {
                     
                 }
             }
-            .frame(maxWidth: cardMaxWidth, maxHeight: cardMaxHeight)
-            .padding(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20))
+//            .frame(maxWidth: cardMaxWidth, maxHeight: .infinity)
+            .padding(EdgeInsets(top: 10, leading: 15, bottom: 10, trailing: 15))
         }
         .contentShape(Rectangle())
+
     }
 }
 
@@ -360,5 +358,7 @@ struct workLogCard: View {
 #Preview {
     EditTab()
         .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+        .modelContainer(PreviewData.container)
+
 //        .modelContainer(for: PreviewListData.container, inMemory: true)
 }
