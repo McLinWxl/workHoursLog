@@ -179,6 +179,29 @@ extension Date {
     var startOfNextMonth: Date {
         Calendar.current.date(byAdding: .month, value: 1, to: startOfMonth)!
     }
+    
+    static func calendarGridDays(for monthDate: Date) -> [Date?] {
+        let cal = Calendar.current
+        let start = monthDate.startOfMonth
+        let range = cal.range(of: .day, in: .month, for: start)!
+        let firstWeekdayIndex = cal.component(.weekday, from: start) // 1..7
+        let firstWeekday = cal.firstWeekday
+        let leading = ((firstWeekdayIndex - firstWeekday) + 7) % 7
+
+        var days: [Date?] = Array(repeating: nil, count: leading)
+        days += range.map { day -> Date? in
+            cal.date(from: DateComponents(year: start.yearInt, month: start.monthInt, day: day))!
+        }
+
+        // 补齐到 35 或 42
+        let base = 35
+        if days.count > base {
+            days += Array(repeating: nil, count: 42 - days.count)
+        } else if days.count < base {
+            days += Array(repeating: nil, count: base - days.count)
+        }
+        return days
+    }
 }
 
 

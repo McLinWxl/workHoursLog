@@ -17,17 +17,13 @@ struct ContentView: View {
     var body: some View {
         
         TabView(selection: $selectedTab) {
-            
-//            Tab("Home", systemImage: "house.fill", value: 0) {
-//                HomeTab()
-//            }
+
             
             Tab("工时记录", systemImage: "calendar.day.timeline.leading", value: 2) {
                 if items.isEmpty {
                     EmptyView()
-//                        .navigationTitle("Log")
                 } else {
-                    EditTab()
+                    CalendarCardTab()
                 }
                 
             }
