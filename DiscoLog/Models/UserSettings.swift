@@ -1,7 +1,16 @@
+//
+//  UserSettings.swift
+//  WorkSession
+//
+//
+
 import SwiftUI
 import Combine
 
+/// App-level user preferences (theme, default time range, iCloud switch).
 final class UserSettings: ObservableObject {
+
+    // MARK: - Theme
 
     enum Theme: String, CaseIterable, Identifiable {
         case system = "自动"
@@ -17,28 +26,59 @@ final class UserSettings: ObservableObject {
         }
     }
 
-    // === 外观 ===
+    // MARK: - Published Preferences
+
     @Published var theme: Theme {
-        didSet { UserDefaults.standard.set(theme.rawValue, forKey: Keys.theme) }
+        didSet { ud.set(theme.rawValue, forKey: Keys.theme) }
     }
 
-    // === 默认时段（仅时分） ===
+    /// Default clock-in time (time-of-day only; date part is ignored).
     @Published var defaultStart: Date {
-        didSet { UserDefaults.standard.set(defaultStart, forKey: Keys.defaultStart) }
+        didSet { ud.set(defaultStart, forKey: Keys.defaultStart) }
     }
+
+    /// Default clock-out time (time-of-day only; can be ≤ start, which implies overnight).
     @Published var defaultEnd: Date {
-        didSet { UserDefaults.standard.set(defaultEnd, forKey: Keys.defaultEnd) }
+        didSet { ud.set(defaultEnd, forKey: Keys.defaultEnd) }
     }
 
-    // MARK: - 同步开关
+    /// Whether to enable iCloud sync for SwiftData container.
     @Published var iCloudSyncEnabled: Bool {
-        didSet { UserDefaults.standard.set(iCloudSyncEnabled, forKey: Keys.iCloudOn) }
+        didSet { ud.set(iCloudSyncEnabled, forKey: Keys.iCloudOn) }
+    }
+    
+    // === Default project (persist UUID to UserDefaults as String) ===
+    @Published var defaultProjectID: UUID? {
+        didSet {
+            let s = defaultProjectID?.uuidString
+            UserDefaults.standard.set(s, forKey: Keys.defaultProjectID)
+        }
+    }
+    
+    @Published var defaultPayrollData: Data? {
+        didSet { UserDefaults.standard.set(defaultPayrollData, forKey: Keys.defaultPayroll) }
     }
 
-    // MARK: Init / 读取默认值
-    init() {
-        let ud = UserDefaults.standard
+    /// Convenience computed property to access decoded config.
+    var defaultPayroll: PayrollConfig? {
+        get { decodeConfig(from: defaultPayrollData) }
+        set { defaultPayrollData = encodeConfig(newValue) }
+    }
+    // MARK: - Dependencies
 
+    private let ud: UserDefaults
+    private let calendar: Calendar
+
+    // MARK: - Init
+
+    init(
+        ud: UserDefaults = .standard,
+        calendar: Calendar = .current
+    ) {
+        self.ud = ud
+        self.calendar = calendar
+
+        // Theme
         if let raw = ud.string(forKey: Keys.theme),
            let t = Theme(rawValue: raw) {
             theme = t
@@ -46,48 +86,106 @@ final class UserSettings: ObservableObject {
             theme = .system
         }
 
-        if let s = ud.object(forKey: Keys.defaultStart) as? Date {
-            defaultStart = s
-        } else {
-            defaultStart = Self.makeTime(hour: 9, minute: 0)
-        }
+        // Default times (fallback to 09:00–18:00)
+        defaultStart = (ud.object(forKey: Keys.defaultStart) as? Date)
+            ?? Self.makeTime(hour: 9, minute: 0, calendar: calendar)
+        defaultEnd = (ud.object(forKey: Keys.defaultEnd) as? Date)
+            ?? Self.makeTime(hour: 18, minute: 0, calendar: calendar)
 
-        if let e = ud.object(forKey: Keys.defaultEnd) as? Date {
-            defaultEnd = e
+        // iCloud switch
+        iCloudSyncEnabled = (ud.object(forKey: Keys.iCloudOn) as? Bool) ?? false
+        
+        if let s = ud.string(forKey: Keys.defaultProjectID), let id = UUID(uuidString: s) {
+            defaultProjectID = id
         } else {
-            defaultEnd = Self.makeTime(hour: 18, minute: 0)
+            defaultProjectID = nil
         }
-
-        iCloudSyncEnabled = ud.object(forKey: Keys.iCloudOn) as? Bool ?? false
+        
+        if let data = UserDefaults.standard.data(forKey: Keys.defaultPayroll) {
+            defaultPayrollData = data
+        } else {
+            defaultPayrollData = nil
+        }
     }
 
-    // MARK: Helpers
-    func start(on day: Date) -> Date { combine(defaultTime: defaultStart, with: day) }
+        
+    
+    // MARK: - Public Helpers
+
+    /// Compose a concrete start datetime on a given day using the default start time.
+    func start(on day: Date) -> Date {
+        Self.combine(timeOfDay: defaultStart, with: day, calendar: calendar)
+    }
+
+    /// Compose a concrete end datetime on a given day using the default end time.
+    /// If the end is not later than start, returns the next-day end (overnight).
     func end(on day: Date) -> Date {
         let s = start(on: day)
-        var e = combine(defaultTime: defaultEnd, with: day)
-        if e <= s { e = Calendar.current.date(byAdding: .day, value: 1, to: e)! }
+        var e = Self.combine(timeOfDay: defaultEnd, with: day, calendar: calendar)
+        if e <= s {
+            e = calendar.date(byAdding: .day, value: 1, to: e) ?? e
+        }
         return e
     }
 
-    static func makeTime(hour: Int, minute: Int) -> Date {
-        var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+    /// Default interval length in hours (normalized with overnight rule).
+    var defaultIntervalHours: Double {
+        let today = calendar.startOfDay(for: Date())
+        let s = start(on: today)
+        let e = end(on: today)
+        return max(0, e.timeIntervalSince(s) / 3600)
+    }
+
+    /// Batch update defaults with normalization.
+    func updateDefaultTimes(start: Date, end: Date) {
+        self.defaultStart = start
+        self.defaultEnd = end
+    }
+
+    /// Reset to factory defaults (09:00–18:00, system theme, iCloud off).
+    func reset() {
+        theme = .system
+        defaultStart = Self.makeTime(hour: 9, minute: 0, calendar: calendar)
+        defaultEnd   = Self.makeTime(hour: 18, minute: 0, calendar: calendar)
+        iCloudSyncEnabled = false
+    }
+
+    // MARK: - Private Utilities
+
+    /// Create a time-of-day anchored to "today" (date part is irrelevant for storage).
+    private static func makeTime(hour: Int, minute: Int, calendar: Calendar) -> Date {
+        var comps = calendar.dateComponents([.year, .month, .day], from: Date())
         comps.hour = hour; comps.minute = minute; comps.second = 0
-        return Calendar.current.date(from: comps)!
+        return calendar.date(from: comps) ?? Date()
     }
 
-    private func combine(defaultTime: Date, with day: Date) -> Date {
-        let cal = Calendar.current
-        let t = cal.dateComponents([.hour, .minute, .second], from: defaultTime)
-        var d = cal.dateComponents([.year, .month, .day], from: day)
-        d.hour = t.hour; d.minute = t.minute; d.second = 0
-        return cal.date(from: d)!
+    /// Combine a stored time-of-day with an arbitrary day to produce a concrete Date.
+    private static func combine(timeOfDay: Date, with day: Date, calendar: Calendar) -> Date {
+        let t = calendar.dateComponents([.hour, .minute, .second], from: timeOfDay)
+        var d = calendar.dateComponents([.year, .month, .day], from: day)
+        d.hour = t.hour; d.minute = t.minute; d.second = t.second ?? 0
+        return calendar.date(from: d) ?? day
     }
 
-    private struct Keys {
-        static let theme             = "UserSettings.theme"
-        static let defaultStart      = "UserSettings.defaultStart"
-        static let defaultEnd        = "UserSettings.defaultEnd"
-        static let iCloudOn          = "UserSettings.iCloudOn"
+    // MARK: - Persistence Keys
+
+    private enum Keys {
+        static let theme        = "UserSettings.theme"
+        static let defaultStart = "UserSettings.defaultStart"
+        static let defaultEnd   = "UserSettings.defaultEnd"
+        static let iCloudOn     = "UserSettings.iCloudOn"
+        static let defaultProjectID  = "UserSettings.defaultProjectID"
+        static let defaultPayroll    = "UserSettings.defaultPayroll"
+
+    }
+    
+    // MARK: - Codable helpers
+    private func encodeConfig(_ cfg: PayrollConfig?) -> Data? {
+        guard let cfg else { return nil }
+        return try? JSONEncoder().encode(cfg)
+    }
+    private func decodeConfig(from data: Data?) -> PayrollConfig? {
+        guard let data else { return nil }
+        return try? JSONDecoder().decode(PayrollConfig.self, from: data)
     }
 }

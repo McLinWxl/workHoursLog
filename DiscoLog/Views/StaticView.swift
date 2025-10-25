@@ -1,205 +1,146 @@
 //
 //  StaticView.swift
-//  DiscoLog
+//  WorkSession
+//
 //
 
 import SwiftUI
 import SwiftData
 
-// MARK: - 主视图：年热力图（两行） + 月日历
-struct StaticView: View {
-    @Query(sort: [SortDescriptor(\WorkLogs.startTime, order: .forward)])
-    private var allLogs: [WorkLogs]
+// MARK: - Root: Year heatmap (2 rows) + monthly timeline
 
-    @State private var modalType: ModalType?
+struct StaticView: View {
+    @Query(sort: [SortDescriptor(\WorkLog.startTime, order: .forward)])
+    private var allLogs: [WorkLog]
+
+    @State private var modal: ModalType?
     @State private var selectedYear: Int = Date().yearInt
     @State private var selectedMonth: Int = Date().monthInt
-    @State private var addDay: Date?  // 点击“休息日”时记录日期，用于唤起添加 Sheet
     @Environment(\.colorScheme) private var colorScheme
 
-
     var body: some View {
-//        let today = Date().startOfDay
-//        let firstMonth = allLogs.first?.startTime.startOfMonth ?? today.startOfMonth
-//        let monthOptions = Date.monthsAscending(from: firstMonth, to: today)
-        let monthDate = Calendar.current.date(from: DateComponents(year: selectedYear, month: 1, day: 1)) ?? Date().startOfMonth
-        
-        
-        let m0 = monthDate.startOfMonth
-        let m1 = monthDate.startOfNextMonth
-//        let inMonth = allLogs.filter { $0.startTime >= m0 && $0.startTime < m1 }
-//        let totalSeconds = inMonth.reduce(0.0) { acc, log in
-//            acc + max(0, log.endTime.timeIntervalSince(log.startTime))
-//        }
-        
-        
         NavigationStack {
             ScrollView {
-                VStack {
+                VStack(spacing: 12) {
+                    // Header: year title + picker
                     HStack {
-                        Text("\(String(selectedYear)) 年工时热力图")
+                        Text("\(selectedYear) 年工时热力图")
                             .font(.headline.bold())
-                            .foregroundStyle(.primary)
                         Spacer()
-                            Picker("年份", selection: $selectedYear) {
-                                ForEach(availableYearsFrom(allLogs), id: \.self) { y in
-                                    Text("\(String(y)) 年").tag(y)
-                                }
+                        Picker("年份", selection: $selectedYear) {
+                            ForEach(availableYears(from: allLogs), id: \.self) { y in
+                                Text("\(y) 年").tag(y)
                             }
-                            .foregroundStyle(colorScheme == .dark ? .white : .black)
-
-                            .labelsHidden()
-                            .pickerStyle(.menu)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                     }
-                    
-                
-                    
-                    YearHeatmap2Rows(year: selectedYear, allLogs: allLogs)
+
+                    // Year heatmap
+                    let heatmap = YearHeatmapData(year: selectedYear, logs: allLogs)
+                    YearHeatmapTwoRows(data: heatmap)
                         .frame(height: 250)
                         .padding(.vertical)
 
-                    
                     Divider()
-                    
-                    MonthlyTimelineSection(selectedYear: $selectedYear, selectedMonth: $selectedMonth, allLogs: allLogs)
+
+                    // Monthly timeline
+                    MonthlyTimelineSection(
+                        selectedYear: $selectedYear,
+                        selectedMonth: $selectedMonth,
+                        allLogs: allLogs
+                    )
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 12)
             }
             .navigationTitle("工时统计")
             .toolbar {
-
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        modalType = .addLog(defaultDate: Date())
-                    } label: {
+                    Button { modal = .addLog(defaultDate: Date()) } label: {
                         Label("添加", systemImage: "square.and.pencil")
                     }
                 }
             }
-            .sheet(item: $modalType) { sheet in
+            .sheet(item: $modal) { sheet in
                 ModalSheetView(modal: sheet)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
         }
-
     }
-    
-    private func availableYearsFrom(_ logs: [WorkLogs]) -> [Int] {
-        let ys = logs.map { Calendar.current.component(.year, from: $0.startTime) }
-        let minY = min(ys.min() ?? Date().yearInt, Date().yearInt)
-        let maxY = max(ys.max() ?? Date().yearInt, Date().yearInt)
+
+    // Years bounded by logs range and current year (descending)
+    private func availableYears(from logs: [WorkLog]) -> [Int] {
+        let ys = logs.map { $0.startTime.yearInt }
+        let now = Date().yearInt
+        let minY = min(ys.min() ?? now, now)
+        let maxY = max(ys.max() ?? now, now)
         return Array(minY...maxY).sorted(by: >)
     }
 }
 
-// MARK: - 年热力图（两行：1-6月，7-12月；不可交互；自适应宽度）
-fileprivate struct YearHeatmap2Rows: View {
+// MARK: - Year heatmap (two halves: 1–6, 7–12)
+
+/// Precomputed, shareable data for a full year's heatmap.
+fileprivate struct YearHeatmapData {
     let year: Int
-    let allLogs: [WorkLogs]
+    /// Daily total hours for the year (keyed by startOfDay)
+    let totals: [Date: Double]
+
+    init(year: Int, logs: [WorkLog]) {
+        self.year = year
+        let cal = Calendar.current
+        let yStart = cal.date(from: DateComponents(year: year, month: 1, day: 1))?.startOfDay ?? Date().startOfYear
+        let yEnd   = cal.date(from: DateComponents(year: year, month: 12, day: 31))?.startOfDay ?? yStart
+
+        // Accumulate hours by day for logs intersecting the year
+        var dict: [Date: Double] = [:]
+        for l in logs {
+            // Fast-path reject if completely out of year
+            let s = l.startTime
+            guard s >= yStart && s <= yEnd.addingTimeInterval(24*3600 - 1) else { continue }
+            let key = s.startOfDay
+            dict[key, default: 0] += max(0, l.endTime.timeIntervalSince(l.startTime)) / 3600.0
+        }
+        self.totals = dict
+    }
+}
+
+fileprivate struct YearHeatmapTwoRows: View {
+    let data: YearHeatmapData
 
     var body: some View {
-
-        GeometryReader { geo in
-//            let screenWidth = geo.size.width
+        GeometryReader { _ in
             VStack(alignment: .leading, spacing: 10) {
-//                Text("\(String(year)) 年工时热力图")
-//                    .font(.headline.bold())
-//                    .foregroundStyle(.primary)
-
-                
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(.secondarySystemBackground))
-                    
                     VStack(spacing: 0) {
-                        HalfYearHeatmap(year: year, halfIndex: 0, allLogs: allLogs) // 1–6 月
-                        HalfYearHeatmap(year: year, halfIndex: 1, allLogs: allLogs) // 7–12 月
+                        HalfYearHeatmap(halfIndex: 0, data: data) // 1–6
+                        HalfYearHeatmap(halfIndex: 1, data: data) // 7–12
                     }
-
                     .offset(y: 20)
-
                     .padding(.horizontal, 5)
-    //                .frame(height: screenWidth/2)
-    //                .glassEffect(in: .rect(cornerRadius: 12))
                 }
             }
         }
     }
 }
 
-/// 单个月份的小热力图（7 列对齐；高度随周数自适应）
+/// A 6-month heatmap aligned by weeks. Non-interactive.
 fileprivate struct HalfYearHeatmap: View {
-    let year: Int
-    /// 0 表示 1–6 月；1 表示 7–12 月
-    let halfIndex: Int
-    let allLogs: [WorkLogs]
-
-    private func halfRange(year: Int, halfIndex: Int) -> (start: Date, end: Date) {
-        let cal = Calendar.current
-        let startMonth = (halfIndex == 0) ? 1 : 7
-        let endMonth = startMonth + 5
-
-        let monthStart = cal.date(from: DateComponents(year: year, month: startMonth, day: 1))!
-        let monthEndDay = cal.range(of: .day, in: .month,
-                                    for: cal.date(from: DateComponents(year: year, month: endMonth, day: 1))!)!.upperBound - 1
-        let monthEnd = cal.date(from: DateComponents(year: year, month: endMonth, day: monthEndDay))!
-
-        // 对齐到周（firstWeekday）
-        let firstW = cal.firstWeekday // 1..7
-        let startWeekday = cal.component(.weekday, from: monthStart)
-        let startOffset = (startWeekday - firstW + 7) % 7
-        let alignedStart = cal.date(byAdding: .day, value: -startOffset, to: monthStart)!
-
-        let endWeekday = cal.component(.weekday, from: monthEnd)
-        let endOffset = (firstW + 6 - endWeekday + 7) % 7 // 补到该周最后一天
-        let alignedEnd = cal.date(byAdding: .day, value: endOffset, to: monthEnd)! // 包含
-
-        return (alignedStart.startOfDay, alignedEnd.startOfDay)
-    }
-
-    private func dailyTotalsOfYear(_ year: Int) -> ([Date: Double], Double) {
-        let cal = Calendar.current
-        let yStart = cal.date(from: DateComponents(year: year, month: 1, day: 1))!.startOfDay
-        let yEnd   = cal.date(from: DateComponents(year: year, month: 12, day: 31))!.startOfDay
-        let yearLogs = allLogs.filter {
-            let d = $0.startTime.startOfDay
-            return d >= yStart && d <= yEnd
-        }
-        var dict: [Date: Double] = [:]
-        for l in yearLogs {
-            let k = l.startTime.startOfDay
-            dict[k, default: 0] += max(0, l.endTime.timeIntervalSince(l.startTime)) / 3600.0
-        }
-        let maxHours = max(1.0, dict.values.max() ?? 0)
-        return (dict, maxHours)
-    }
-
-    /// 半年范围内（1–6 或 7–12）
-    private func inThisHalf(_ date: Date) -> Bool {
-        let m = date.monthInt
-        return halfIndex == 0 ? (1...6).contains(m) : (7...12).contains(m)
-    }
-
-    /// 是否在这一列顶部显示月份标签：该列第一天属于本半年，且为该月的**前 7 日**（近似“本月首周”）
-    private func shouldShowMonthLabel(_ firstDayOfColumn: Date) -> Bool {
-        guard inThisHalf(firstDayOfColumn) else { return false }
-        return firstDayOfColumn.dayInt <= 7
-    }
-
-    private func monthLabel(_ date: Date) -> String {
-        String(format: "%d月", date.monthInt)
-    }
+    let halfIndex: Int // 0 -> Jan–Jun, 1 -> Jul–Dec
+    let data: YearHeatmapData
 
     var body: some View {
-        let (totals, _) = dailyTotalsOfYear(year)
-        let (start, end) = halfRange(year: year, halfIndex: halfIndex)
+        let year = data.year
+        let (alignedStart, alignedEnd) = halfRangeAligned(year: year, halfIndex: halfIndex)
+        let days: [Date] = Date.sequenceDays(from: alignedStart, through: alignedEnd)
 
-        // 连续天（含 end）
-        let days: [Date] = stride(from: start, through: end, by: 86_400).map { $0 }
-        // 列数 = 周数
-        let columns = Int(ceil(Double(days.count) / 7.0))
+        // columns = number of weeks
+        let columns = max(1, Int(ceil(Double(days.count) / 7.0)))
 
         GeometryReader { geo in
             let spacing: CGFloat = 2
@@ -208,7 +149,6 @@ fileprivate struct HalfYearHeatmap: View {
             let cellHeight = cellSize
 
             ZStack(alignment: .topLeading) {
-
                 HStack(spacing: spacing) {
                     ForEach(0..<columns, id: \.self) { c in
                         VStack(spacing: spacing) {
@@ -217,9 +157,8 @@ fileprivate struct HalfYearHeatmap: View {
                                 if idx < days.count {
                                     let d = days[idx]
                                     RoundedRectangle(cornerRadius: 2)
-                                        .fill(color(for: d, totals: totals))
+                                        .fill(color(for: d))
                                         .frame(width: cellSize, height: cellHeight)
-                                        
                                 } else {
                                     Color.clear.frame(width: cellSize, height: cellHeight)
                                 }
@@ -228,95 +167,99 @@ fileprivate struct HalfYearHeatmap: View {
                     }
                 }
 
-                let cal = Calendar.current
+                // Month labels at the first week of each month within this half
                 let monthsRange = (halfIndex == 0 ? 1...6 : 7...12)
-
+                let cal = Calendar.current
                 ForEach(Array(monthsRange), id: \.self) { m in
                     if let firstOfMonth = cal.date(from: DateComponents(year: year, month: m, day: 1)) {
-                        // 与半年的对齐起点差几天
-                        let dayOffset = max(0, cal.dateComponents([.day], from: start, to: firstOfMonth).day ?? 0)
-                        let colIndex = dayOffset / 7  // 该月第一天落在第几列（按周）
-
-                        if (cal.component(.day, from: firstOfMonth) <= 7) && colIndex < columns {
+                        let offsetDays = max(0, cal.dateComponents([.day], from: alignedStart, to: firstOfMonth).day ?? 0)
+                        let colIndex = offsetDays / 7
+                        if firstOfMonth.dayInt <= 7, colIndex < columns {
                             let x = CGFloat(colIndex) * (cellSize + spacing)
-
-                            Text(String(format: "%d月", m))
+                            Text("\(m)月")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                                 .minimumScaleFactor(0.8)
-                                .offset(x: x, y: -15) // 在整行坐标上定位
+                                .offset(x: x, y: -15)
                         }
                     }
                 }
             }
         }
-//        .frame(height: 7 * 13)
     }
 
-    private func color(for day: Date, totals: [Date: Double]) -> Color {
-        if !inThisHalf(day) { return .clear }
+    // Inclusive aligned start/end around the half-year to full weeks
+    private func halfRangeAligned(year: Int, halfIndex: Int) -> (Date, Date) {
+        let cal = Calendar.current
+        let startMonth = (halfIndex == 0) ? 1 : 7
+        let endMonth   = startMonth + 5
 
-        let hours = totals[day.startOfDay] ?? 0
-        if hours <= 0.01 { return Color.gray.opacity(0.18) }
+        let monthStart = cal.date(from: DateComponents(year: year, month: startMonth, day: 1))?.startOfDay
+            ?? Date().startOfMonth
+        let endMonthStart = cal.date(from: DateComponents(year: year, month: endMonth, day: 1)) ?? monthStart
+        let lastDayOfEndMonth = (cal.range(of: .day, in: .month, for: endMonthStart)?.count ?? 1)
+        let monthEnd = cal.date(from: DateComponents(year: year, month: endMonth, day: lastDayOfEndMonth))?.startOfDay
+            ?? endMonthStart
 
-        let thresholds: [Double] = [
-            0.5, 1, 1.5, 2, 3, 4, 5, 6,
-            6.5, 7.0, 7.25, 7.5, 7.75,
-            8.0, 8.25, 8.5, 8.75,
-            9.0, 9.25, 9.5, 9.75,
-            10, 11, 12, 14, 16, 20
-        ]
-        let opacities: [Double] = [
-            0.06, 0.09, 0.12, 0.15, 0.20, 0.25, 0.30, 0.35,
-            0.40, 0.45, 0.50, 0.54, 0.58,
-            0.62, 0.66, 0.70, 0.74,
-            0.78, 0.81, 0.84, 0.87,
-            0.90, 0.92, 0.94, 0.96, 0.98, 0.99, 1.00
-        ]
-        let idx = thresholds.firstIndex(where: { hours <= $0 }) ?? (opacities.count - 1)
-        return Color.orange.opacity(opacities[idx])
+        let firstW = cal.firstWeekday // 1..7
+        let startWeekday = cal.component(.weekday, from: monthStart)
+        let startOffset = (startWeekday - firstW + 7) % 7
+        let alignedStart = cal.date(byAdding: .day, value: -startOffset, to: monthStart) ?? monthStart
+
+        let endWeekday = cal.component(.weekday, from: monthEnd)
+        let endOffset = (firstW + 6 - endWeekday + 7) % 7 // pad to end of week
+        let alignedEnd = cal.date(byAdding: .day, value: endOffset, to: monthEnd) ?? monthEnd
+        return (alignedStart, alignedEnd)
+    }
+
+    private func isInThisHalf(_ date: Date) -> Bool {
+        let m = date.monthInt
+        return halfIndex == 0 ? (1...6).contains(m) : (7...12).contains(m)
+    }
+
+    private func color(for day: Date) -> Color {
+        guard isInThisHalf(day) else { return .clear }
+        let h = data.totals[day.startOfDay] ?? 0
+
+        // Map hours to opacity with smooth thresholds (0 -> light gray, 8h -> solid orange).
+        if h <= 0.01 { return Color.gray.opacity(0.18) }
+        let capped = min(h, 12.0) // clamp for extreme days
+        let opacity = 0.06 + (capped / 12.0) * (1.0 - 0.06)
+        return Color.orange.opacity(opacity)
     }
 }
 
-
-
+// MARK: - Monthly timeline (horizontal bars per day)
 
 fileprivate struct MonthlyTimelineSection: View {
     @Binding var selectedYear: Int
     @Binding var selectedMonth: Int
-    let allLogs: [WorkLogs]
-    
+    let allLogs: [WorkLog]
+
     @State private var scrollToEndTrigger = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 标题 + 筛选下拉
             HStack {
-                Text("每日分析")
-                    .font(.headline.bold())
-                
+                Text("每日分析").font(.headline.bold())
                 Spacer(minLength: 0)
-                
                 Picker("年", selection: $selectedYear) {
-                    ForEach(availableYearsFrom(allLogs), id: \.self) { year in
-                        Text("\(String(year))年").tag(year)
+                    ForEach(availableYears(from: allLogs), id: \.self) { y in
+                        Text("\(y)年").tag(y)
                     }
                 }
                 .pickerStyle(.menu)
-                
 
                 Picker("月", selection: $selectedMonth) {
-                    ForEach(availableMonthFrom(allLogs), id: \.self) { m in
-                        Text("\(String(m))月").tag(m)
+                    ForEach(1...12, id: \.self) { m in
+                        Text("\(m)月").tag(m)
                     }
                 }
                 .pickerStyle(.menu)
-
             }
 
-            // 主体：时间轴视图
             MonthlyTimelineView(
                 year: selectedYear,
                 month: selectedMonth,
@@ -329,7 +272,6 @@ fileprivate struct MonthlyTimelineSection: View {
                     .fill(Color(.secondarySystemBackground))
             )
             .overlay(alignment: .topTrailing) {
-                // 悬浮按钮
                 Button {
                     scrollToEndTrigger.toggle()
                 } label: {
@@ -344,18 +286,12 @@ fileprivate struct MonthlyTimelineSection: View {
         }
         .padding(.vertical, 6)
     }
-    
-    private func availableYearsFrom(_ logs: [WorkLogs]) -> [Int] {
-        let ys = logs.map { Calendar.current.component(.year, from: $0.startTime) }
-        let minY = min(ys.min() ?? Date().yearInt, Date().yearInt)
-        let maxY = max(ys.max() ?? Date().yearInt, Date().yearInt)
-        return Array(minY...maxY).sorted(by: >)
-    }
-    
-    private func availableMonthFrom(_ logs: [WorkLogs]) -> [Int] {
-        let ys = logs.map { Calendar.current.component(.month, from: $0.startTime) }
-        let minY = min(ys.min() ?? Date().monthInt, Date().monthInt)
-        let maxY = max(ys.max() ?? Date().monthInt, Date().monthInt)
+
+    private func availableYears(from logs: [WorkLog]) -> [Int] {
+        let ys = logs.map { $0.startTime.yearInt }
+        let now = Date().yearInt
+        let minY = min(ys.min() ?? now, now)
+        let maxY = max(ys.max() ?? now, now)
         return Array(minY...maxY).sorted(by: >)
     }
 }
@@ -363,27 +299,28 @@ fileprivate struct MonthlyTimelineSection: View {
 fileprivate struct MonthlyTimelineView: View {
     let year: Int
     let month: Int
-    let allLogs: [WorkLogs]
+    let allLogs: [WorkLog]
     @Binding var scrollToEndTrigger: Bool
 
     private var daysOfMonth: [Date] {
-        let cal = Calendar.current
-        let start = cal.date(from: DateComponents(year: year, month: month, day: 1))!
-        let end = cal.date(byAdding: .month, value: 1, to: start)!
-        return stride(from: start, to: end, by: 86_400).map { $0 }
+        let start = Calendar.current.date(from: DateComponents(year: year, month: month, day: 1))?.startOfDay
+            ?? Date().startOfMonth
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start)?.startOfDay
+            ?? start.startOfNextMonth
+        return Date.sequenceDays(from: start, to: end)
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .bottom, spacing: 4) {  // ← 间距改为 4
+                LazyHStack(alignment: .bottom, spacing: 4) {
                     ForEach(daysOfMonth, id: \.self) { day in
                         TimelineColumn(
                             day: day,
                             logs: logsIntersecting(day: day),
                             isToday: Calendar.current.isDateInToday(day)
                         )
-                        .id(day.idKey)
+                        .id(day.isoKey)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -391,29 +328,27 @@ fileprivate struct MonthlyTimelineView: View {
             }
             .onAppear {
                 if let last = daysOfMonth.last {
-                    withAnimation(.snappy) {
-                        proxy.scrollTo(last.idKey, anchor: .trailing)
-                    }
+                    withAnimation(.snappy) { proxy.scrollTo(last.isoKey, anchor: .trailing) }
                 }
             }
             .onChange(of: scrollToEndTrigger) { _ in
                 if let last = daysOfMonth.last {
-                    withAnimation(.snappy) {
-                        proxy.scrollTo(last.idKey, anchor: .trailing)
-                    }
+                    withAnimation(.snappy) { proxy.scrollTo(last.isoKey, anchor: .trailing) }
                 }
             }
         }
     }
 
-    private func logsIntersecting(day: Date) -> [WorkLogs] {
-        allLogs.filter { $0.endTime > day.startOfDay && $0.startTime < day.endOfDay }
+    private func logsIntersecting(day: Date) -> [WorkLog] {
+        let s = day.startOfDay
+        let e = day.endOfDay
+        return allLogs.filter { $0.endTime > s && $0.startTime < e }
     }
 }
 
 fileprivate struct TimelineColumn: View {
     let day: Date
-    let logs: [WorkLogs]
+    let logs: [WorkLog]
     let isToday: Bool
 
     var body: some View {
@@ -424,131 +359,125 @@ fileprivate struct TimelineColumn: View {
                 let colWidth: CGFloat = 18
 
                 ZStack(alignment: .top) {
-                    // 背景轨道
+                    // Track
                     track
                         .fill(Color.gray.opacity(0.12))
-                        .overlay(
-                            track.stroke(Color.gray.opacity(0.25), lineWidth: 1)
-                        )
+                        .overlay(track.stroke(Color.gray.opacity(0.25), lineWidth: 1))
                         .frame(width: colWidth)
 
-                    // 工时段
-                    ForEach(segmentsInDay(day, logs: logs), id: \.self) { seg in
+                    // Segments
+                    ForEach(daySegments(day, logs: logs), id: \.self) { seg in
                         let y = CGFloat(seg.lowerBound / 24.0) * height
                         let h = max(2, CGFloat((seg.upperBound - seg.lowerBound) / 24.0) * height)
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color.orange)
                             .frame(width: colWidth, height: h)
-//                            .glassEffect(in: .rect(cornerRadius: 6))
-
                             .offset(y: y)
                     }
 
-                    // 今日高亮边框
+                    // Today highlight
                     if isToday {
                         RoundedRectangle(cornerRadius: 6)
-//                            .frame(width: colWidth, height: height)
                             .fill(.clear)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(Color.red.opacity(0.8), lineWidth: 2.5)
                             )
-                            .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
-                            .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
-//                            .stroke(Color.orange, lineWidth: 1.5)
-//                            .frame(width: colWidth, height: height)
+                            .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
+                            .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 4)
                     }
                 }
             }
-            .frame(width: 22, height: 200) // 列总体高度与宽度
+            .frame(width: 22, height: 200)
 
-            // 日期标签
+            // Labels
             VStack(spacing: 2) {
                 Text(String(format: "%02d", day.dayInt))
                     .font(.caption2.weight(.semibold))
                     .foregroundColor(.primary)
 
-                let hours = totalHoursInDay(day)
+                let hours = totalHoursOfDay(day, logs: logs)
                 if hours > 0 {
                     Text(String(format: "%.0fh", hours))
                         .font(.caption2)
                         .foregroundColor(.orange)
                 } else {
-                    Text(" ")
-                        .font(.caption2)
+                    Text(" ").font(.caption2)
                 }
             }
             .frame(width: 22)
         }
     }
 
-    // MARK: - 数据辅助
-    private func segmentsInDay(_ day: Date, logs: [WorkLogs]) -> [ClosedRange<Double>] {
-        let start = day.startOfDay
-        let end = day.endOfDay
-        var segs: [ClosedRange<Double>] = []
-        for l in logs {
-            let s = max(l.startTime, start)
-            let e = min(l.endTime, end)
-            guard e > s else { continue }
-            let lower = s.timeIntervalSince(start) / 3600
-            let upper = e.timeIntervalSince(start) / 3600
-            segs.append(lower...upper)
+    // Build merged hour segments within [0, 24] for a given day.
+    private func daySegments(_ day: Date, logs: [WorkLog]) -> [ClosedRange<Double>] {
+        let s = day.startOfDay, e = day.endOfDay
+        let raw: [ClosedRange<Double>] = logs.compactMap { l in
+            let ss = max(l.startTime, s), ee = min(l.endTime, e)
+            guard ee > ss else { return nil }
+            let lower = ss.timeIntervalSince(s) / 3600
+            let upper = ee.timeIntervalSince(s) / 3600
+            return lower...upper
         }
-        return mergeSegments(segs)
+        return merge(raw)
     }
 
-    private func totalHoursInDay(_ day: Date) -> Double {
+    private func totalHoursOfDay(_ day: Date, logs: [WorkLog]) -> Double {
         logs.reduce(0) { acc, l in
-            let start = max(l.startTime, day.startOfDay)
-            let end   = min(l.endTime, day.endOfDay)
-            return acc + max(0, end.timeIntervalSince(start) / 3600)
+            let s = max(l.startTime, day.startOfDay)
+            let e = min(l.endTime, day.endOfDay)
+            return acc + max(0, e.timeIntervalSince(s) / 3600)
         }
     }
 
-    private func mergeSegments(_ segs: [ClosedRange<Double>]) -> [ClosedRange<Double>] {
+    /// Merge overlapping/adjacent ranges (in hours).
+    private func merge(_ segs: [ClosedRange<Double>]) -> [ClosedRange<Double>] {
         guard !segs.isEmpty else { return [] }
         let sorted = segs.sorted { $0.lowerBound < $1.lowerBound }
-        var merged: [ClosedRange<Double>] = [sorted[0]]
-        for seg in sorted.dropFirst() {
-            if var last = merged.last, seg.lowerBound <= last.upperBound {
-                last = last.lowerBound...max(last.upperBound, seg.upperBound)
-                merged[merged.count - 1] = last
+        var out: [ClosedRange<Double>] = [sorted[0]]
+        for s in sorted.dropFirst() {
+            if var last = out.last, s.lowerBound <= last.upperBound {
+                last = last.lowerBound ... max(last.upperBound, s.upperBound)
+                out[out.count - 1] = last
             } else {
-                merged.append(seg)
+                out.append(s)
             }
         }
-        return merged
+        return out
     }
 }
 
+// MARK: - Local utilities (scoped)
 
-
-fileprivate extension Date {
-    var endOfDay: Date { Calendar.current.date(byAdding: .second, value: 86_399, to: startOfDay)! }
-    var idKey: String { ISO8601DateFormatter().string(from: self) }
-}
+//fileprivate extension Date {
 //
-
-// MARK: - Preview
-//#Preview {
-//    NavigationStack {
-//        StaticView()
-//            .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-//            .modelContainer(PreviewData.container)
+//    var startOfYear: Date {
+//        let cal = Calendar.current
+//        let comps = cal.dateComponents([.year], from: self)
+//        return cal.date(from: comps) ?? self
 //    }
+//
+//    static func sequenceDays(from start: Date, to end: Date) -> [Date] {
+//        guard start <= end else { return [] }
+//        var out: [Date] = []
+//        var cur = start
+//        while cur < end {
+//            out.append(cur)
+//            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? end
+//        }
+//        return out
+//    }
+//
+//    static func sequenceDays(from start: Date, through endInclusive: Date) -> [Date] {
+//        guard start <= endInclusive else { return [] }
+//        var out: [Date] = []
+//        var cur = start
+//        while cur <= endInclusive {
+//            out.append(cur)
+//            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? endInclusive.addingTimeInterval(1)
+//        }
+//        return out
+//    }
+//
+//    var isoKey: String { ISO8601DateFormatter().string(from: self) }
 //}
-
-#Preview {
-    @Previewable @StateObject var userSettings = UserSettings()
-    @Previewable @StateObject var store = ModelStore(cloudEnabled: false)
-
-    NavigationStack {
-        StaticView()
-            .environmentObject(userSettings)
-            .environmentObject(store)
-            .preferredColorScheme(userSettings.theme.colorScheme)
-            .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-    }
-    .modelContainer(PreviewData.container)
-}

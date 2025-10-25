@@ -1,57 +1,104 @@
 //
 //  ModalType.swift
-//  DiscoLog
+//  WorkSession
 //
-//  Created by McLin on 2025/10/13.
 //
 
 import SwiftUI
+import SwiftData
+
+// MARK: - Modal Routing
 
 enum ModalType: Identifiable, Equatable {
     case addLog(defaultDate: Date)
-    case editLog(WorkLogs)
-    
-    
+    case editLog(WorkLog)
+
+    /// Stable identity to ensure sheet refreshes correctly.
     var id: String {
         switch self {
-        case .addLog:
-            "addLog"
-        case .editLog:
-            "editLog"
+        case .addLog(let d):
+            // Use day key to differentiate different "add" targets
+            let dayKey = DateFormatter.yyyyMMdd.string(from: d.startOfDay)
+            return "add-\(dayKey)"
+        case .editLog(let log):
+            // Use model's unique identity
+            return "edit-\(log.syncID.uuidString)"
         }
     }
-    
-//    @ViewBuilder
-//    var body: some View{
-//
-//        switch self {
-//        case .addLog(let defaultDate):
-//
-//            @StateObject var userSettings = UserSettings()
-//
-//            let workLog = WorkLogs(startTime: userSettings.start(on: defaultDate), endTime: userSettings.end(on: defaultDate))
-//            LogForm(workLog: workLog, isEdit: false)
-//        case .editLog(let Log):
-//            LogForm(workLog: Log, isEdit: true)
-//        }
-//    }
+
+    // Custom equality: avoid comparing entire WorkLog object graph.
+    static func == (lhs: ModalType, rhs: ModalType) -> Bool {
+        switch (lhs, rhs) {
+        case let (.addLog(d1), .addLog(d2)):
+            return d1.startOfDay == d2.startOfDay
+        case let (.editLog(a), .editLog(b)):
+            return a.syncID == b.syncID
+        default:
+            return false
+        }
+    }
 }
+
+// MARK: - Modal Sheet Host
 
 struct ModalSheetView: View {
     let modal: ModalType
     @EnvironmentObject var userSettings: UserSettings
 
+    @Query private var activeProjects: [Project]
+
+    init(modal: ModalType) {
+        self.modal = modal
+        let pred: Predicate<Project> = #Predicate { $0.isArchived == false }
+        let sorts: [SortDescriptor<Project>] = [
+            SortDescriptor(\Project.sortOrder, order: .forward),
+            SortDescriptor(\Project.createdAt,  order: .forward)
+        ]
+        _activeProjects = Query(filter: pred, sort: sorts)
+    }
+
     var body: some View {
         switch modal {
         case .addLog(let defaultDate):
-            // 用环境里的 settings 生成开始/结束时间
             let start = userSettings.start(on: defaultDate)
             let end   = userSettings.end(on: defaultDate)
-            let workLog = WorkLogs(startTime: start, endTime: end)
-            LogForm(workLog: workLog, isEdit: false)
+
+            // weekend => rest, no holiday
+            let wd = Calendar.current.component(.weekday, from: defaultDate) // 1=Sun ... 7=Sat
+            let isWeekend = (wd == 1 || wd == 7)
+
+            let draft = WorkLog(startTime: start,
+                                endTime: end,
+                                isRestDay: isWeekend,
+                                isHoliday: false)
+
+            // 只传“默认项目ID”，不要把 Project 挂到 draft 上
+            let prefillID = resolveDefaultProjectID()
+
+            LogForm(workLog: draft, isEdit: false, prefillProjectID: prefillID)
 
         case .editLog(let log):
-            LogForm(workLog: log, isEdit: true)
+            LogForm(workLog: log, isEdit: true, prefillProjectID: nil)
         }
     }
+
+    /// 优先使用用户设置的默认项目；无则回退到第一个有效项目；都无则 nil
+    private func resolveDefaultProjectID() -> UUID? {
+        if let id = userSettings.defaultProjectID,
+           activeProjects.contains(where: { $0.id == id && !$0.isArchived }) {
+            return id
+        }
+        return activeProjects.first?.id
+    }
+}
+
+private extension DateFormatter {
+    static let yyyyMMdd: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = .current
+        f.locale = .current
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 }

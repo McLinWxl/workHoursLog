@@ -142,6 +142,14 @@ extension Date {
         Calendar.current.startOfDay(for: self)
     }
     
+    var endOfDay: Date {
+        let cal = Calendar.current
+        // Start of next day minus 1 second
+        let nextStart = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? self
+        return nextStart.addingTimeInterval(-1)
+    }
+    
+    
     // Used to generate the mock data for previews
     // Computed property courtesy of ChatGPT
     var randomDateWithinLastThreeMonths: Date {
@@ -202,6 +210,48 @@ extension Date {
         }
         return days
     }
+    
+    /// Add days safely.
+    func addingDays(_ days: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: days, to: self) ?? self
+    }
+
+    /// Set time safely; fallback to self on failure.
+    func at(hour: Int, minute: Int = 0, second: Int = 0) -> Date {
+        Calendar.current.date(
+            bySettingHour: hour, minute: minute, second: second, of: self
+        ) ?? self
+    }
+    
+    var startOfYear: Date {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year], from: self)
+        return cal.date(from: comps) ?? self
+    }
+
+    static func sequenceDays(from start: Date, to end: Date) -> [Date] {
+        guard start <= end else { return [] }
+        var out: [Date] = []
+        var cur = start
+        while cur < end {
+            out.append(cur)
+            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? end
+        }
+        return out
+    }
+
+    static func sequenceDays(from start: Date, through endInclusive: Date) -> [Date] {
+        guard start <= endInclusive else { return [] }
+        var out: [Date] = []
+        var cur = start
+        while cur <= endInclusive {
+            out.append(cur)
+            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? endInclusive.addingTimeInterval(1)
+        }
+        return out
+    }
+
+    var isoKey: String { ISO8601DateFormatter().string(from: self) }
 }
 
 
