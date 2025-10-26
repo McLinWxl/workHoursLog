@@ -71,11 +71,11 @@ struct BucketHours: Hashable {
 struct PayrollStatement: Hashable {
     var period: DateInterval
     var hours: BucketHours
-    var amountRegular: Double
-    var amountWorkdayOT: Double
-    var amountRestDayOT: Double
-    var amountHolidayOT: Double
-    var amountTotal: Double
+    var amountRegular: Decimal
+    var amountWorkdayOT: Decimal
+    var amountRestDayOT: Decimal
+    var amountHolidayOT: Decimal
+    var amountTotal: Decimal
 }
 
 // MARK: - Engine
@@ -94,10 +94,10 @@ struct CompensationEngine {
         let buckets = classifyAndAccumulate(sliced: sliced, cfg: cfg, monthAnchor: period.start)
 
         let rt = cfg.rateTable
-        let amtRegular     = buckets.regular   * rt.basePerHour
-        let amtWorkdayOT   = buckets.workdayOT * rt.basePerHour * rt.multipliers.workday
-        let amtRestDayOT   = buckets.restDayOT * rt.basePerHour * rt.multipliers.restDay
-        let amtHolidayOT   = buckets.holidayOT * rt.basePerHour * rt.multipliers.holiday
+        let amtRegular     = Decimal(buckets.regular)   * Decimal(rt.basePerHour)
+        let amtWorkdayOT   = Decimal(buckets.workdayOT) * Decimal(rt.basePerHour) * Decimal(rt.multipliers.workday)
+        let amtRestDayOT   = Decimal(buckets.restDayOT) * Decimal(rt.basePerHour) * Decimal(rt.multipliers.restDay)
+        let amtHolidayOT   = Decimal(buckets.holidayOT) * Decimal(rt.basePerHour) * Decimal(rt.multipliers.holiday)
         let total          = amtRegular + amtWorkdayOT + amtRestDayOT + amtHolidayOT
 
         return PayrollStatement(
@@ -213,18 +213,26 @@ struct CompensationEngine {
     private struct DaySlice: Hashable {
         let start: Date
         let end: Date
-        let isRestDay: Bool     // explicit flag from WorkLog
-        let isHoliday: Bool     // explicit flag from WorkLog
+        let isRestDay: Bool
+        let isHoliday: Bool
 
-        var hours: Double { max(0, end.timeIntervalSince(start) / 3600) }
-        var day: Date { Calendar.current.startOfDay(for: start) }
+        /// total minutes in this slice (minute-accurate, no second drift)
+        let minutes: Int
+
+        /// hours computed from minutes
+        var hours: Double { Double(minutes) / 60.0 }
+
+        /// the day bucket (00:00 of start)
+        let day: Date
         var dayKey: String { DateFormatter.yyyyMMdd.string(from: day) }
     }
 
-    /// Split logs by day and crop to the given period.
-    /// Explicit flags are carried to each slice (cross-day logs duplicate flags).
+
+    // Replace your slice-by-day logic
     private func sliceLogsByDay(_ logs: [WorkLog], limitedTo period: DateInterval) -> [DaySlice] {
         var out: [DaySlice] = []
+        let cal = calendar   // 引擎里已有的 Calendar
+
         for log in logs {
             let clampedStart = max(log.startTime, period.start)
             let clampedEnd   = min(log.endTime, period.end)
@@ -232,14 +240,23 @@ struct CompensationEngine {
 
             var s = clampedStart
             while s < clampedEnd {
-                let sod = calendar.startOfDay(for: s)
-                let eod = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: sod) ?? clampedEnd
-                let sliceEnd = min(eod, clampedEnd)
-                out.append(DaySlice(start: s,
-                                    end: sliceEnd,
-                                    isRestDay: log.isRestDay,
-                                    isHoliday: log.isHoliday))
-                s = calendar.date(byAdding: .second, value: 1, to: sliceEnd) ?? clampedEnd
+                let sod     = cal.startOfDay(for: s)
+                let nextDay = cal.date(byAdding: .day, value: 1, to: sod)!   // [sod, nextDay)
+                let sliceEnd = min(nextDay, clampedEnd)                      // 半开区间，不做 ±1 秒
+
+                // 以“分”为单位计算，避免秒级误差
+                let mins = cal.dateComponents([.minute], from: s, to: sliceEnd).minute ?? 0
+
+                out.append(DaySlice(
+                    start: s,
+                    end: sliceEnd,
+                    isRestDay: log.isRestDay,
+                    isHoliday: log.isHoliday,
+                    minutes: max(0, mins),
+                    day: sod
+                ))
+
+                s = sliceEnd  // 前一段的 end 即下一段的 start
             }
         }
         return out

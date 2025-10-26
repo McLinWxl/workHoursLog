@@ -48,7 +48,7 @@ enum PayrollPeriodKind: String, Codable {
 }
 
 /// Payroll config knobs.
-struct PayrollConfig: Codable {
+struct PayrollConfig: Codable, Equatable {
     var mode: WorkMode
     var periodKind: PayrollPeriodKind = .monthly
     var dailyRegularHours: Double = 8.0         // for standardHours

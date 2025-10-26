@@ -20,28 +20,34 @@ import SwiftData
 @Model
 final class Project {
     // Identity
-    @Attribute(.unique) var id: UUID = UUID()
+    var id: UUID = UUID()
 
     // Core
-    var name: String                    // display name
     var note: String?                   // optional memo
-    var colorTag: String                // hex or token (UI maps it to Color)
     var emojiTag: String?               // optional emoji marker, e.g. "🛠️"
 
     // Lifecycle
-    var isArchived: Bool                // archived projects are hidden by default
-    var sortOrder: Int                  // for manual ordering in lists
 
     // Timestamps
-    var createdAt: Date
-    var updatedAt: Date
+    var name: String = ""                 // ← 默认空串
+    var colorTag: String = "#7B61FF"      // ← 默认颜色
+    var isArchived: Bool = false          // ← 默认 false
+    var sortOrder: Int = 0                // ← 默认 0
+    var createdAt: Date = Date.now         // ← 默认 now
+    var updatedAt: Date = Date.now            // ← 默认 now
 
     // Payroll/Overtime policy bound to this project
-    var payroll: PayrollConfig          // see WorkMode.swift
+    var payroll: PayrollConfig = PayrollConfig(
+        mode: .standardHours,
+        periodKind: .monthly,
+        dailyRegularHours: 8,
+        hoursPerWorkday: 8,
+        rateTable: .demo
+    )       // see WorkMode.swift
 
     // Relations
-    @Relationship(inverse: \WorkLog.project)
-    var workLogs: [WorkLog] = []
+    @Relationship(deleteRule: .cascade)
+    var workLogs: [WorkLog]? = nil
 
     // MARK: - Init
 

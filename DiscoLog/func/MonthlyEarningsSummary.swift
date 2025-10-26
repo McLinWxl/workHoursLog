@@ -16,11 +16,11 @@ import Foundation
 struct MonthlyEarningsSummary: Hashable {
     let period: DateInterval
     let hours: BucketHours
-    let amountRegular: Double
-    let amountWorkdayOT: Double
-    let amountRestDayOT: Double
-    let amountHolidayOT: Double
-    var amountTotal: Double { amountRegular + amountWorkdayOT + amountRestDayOT + amountHolidayOT }
+    let amountRegular: Decimal
+    let amountWorkdayOT: Decimal
+    let amountRestDayOT: Decimal
+    let amountHolidayOT: Decimal
+    var amountTotal: Decimal { amountRegular + amountWorkdayOT + amountRestDayOT + amountHolidayOT }
     /// Project-level statements (key = project.id or nil for unassigned).
     let byProject: [UUID?: PayrollStatement]
     /// True if there exist unassigned logs that were skipped due to missing default payroll.
@@ -46,10 +46,10 @@ struct MonthlyEarningsCalculator {
         var byProject: [UUID?: PayrollStatement] = [:]
 
         var accHours = BucketHours()
-        var amtReg: Double = 0
-        var amtWot: Double = 0
-        var amtRot: Double = 0
-        var amtHot: Double = 0
+        var amtReg: Decimal = 0
+        var amtWot: Decimal = 0
+        var amtRot: Decimal = 0
+        var amtHot: Decimal = 0
 
         var hasUnassignedButNoDefault = false
 
@@ -79,10 +79,10 @@ struct MonthlyEarningsCalculator {
             accHours.restDayOT += stmt.hours.restDayOT
             accHours.holidayOT += stmt.hours.holidayOT
 
-            amtReg += stmt.amountRegular
-            amtWot += stmt.amountWorkdayOT
-            amtRot += stmt.amountRestDayOT
-            amtHot += stmt.amountHolidayOT
+            amtReg += stmt.amountRegular.rounded(scale: 2)
+            amtWot += stmt.amountWorkdayOT.rounded(scale: 2)
+            amtRot += stmt.amountRestDayOT.rounded(scale: 2)
+            amtHot += stmt.amountHolidayOT.rounded(scale: 2)
         }
 
         return MonthlyEarningsSummary(
@@ -95,5 +95,15 @@ struct MonthlyEarningsCalculator {
             byProject: byProject,
             hasUnassignedButNoDefault: hasUnassignedButNoDefault
         )
+    }
+}
+
+
+extension Decimal {
+    func rounded(scale: Int, mode: NSDecimalNumber.RoundingMode = .bankers) -> Decimal {
+        var result = Decimal()
+        var value = self
+        NSDecimalRound(&result, &value, scale, mode)
+        return result
     }
 }
