@@ -41,6 +41,9 @@ struct SettingsView: View {
         hoursPerWorkday: 8,
         rateTable: .demo
     )
+    
+    @State private var hasUnsavedChanges = false
+    @State private var justSaved = false
 
     // Aggregates
     private var recordedDays: Int {
@@ -59,10 +62,8 @@ struct SettingsView: View {
                 Section {
                     HStack(spacing: 8) {
                         StatCard(title: "记录", value: "\(recordedDays)天")
-//                            .glassEffect(in: .rect(cornerRadius: 27))
                         Spacer(minLength: 0)
                         StatCard(title: "总计工时", value: "\(totalHoursText) 小时")
-//                            .glassEffect(in: .rect(cornerRadius: 27))
                     }
                     .listRowBackground(Color.clear) // 去掉背景
                     .listRowInsets(EdgeInsets())    // 去掉内边距
@@ -128,7 +129,6 @@ struct SettingsView: View {
                         Text("无").tag(UUID?.none)
                         ForEach(projects.filter { !$0.isArchived }, id: \.id) { prj in
                             HStack(spacing: 6) {
-                                if let emoji = prj.emojiTag { Text(emoji) }
                                 Text(prj.name)
                             }
                             .tag(Optional.some(prj.id))
@@ -240,12 +240,27 @@ struct SettingsView: View {
                             payrollDraft.mode = .standardHours
                             payrollDraft.dailyRegularHours = 8
                             payrollDraft.hoursPerWorkday = 8
+                            hasUnsavedChanges = true
+                            justSaved = false
                         }
                         Spacer()
-                        Button("保存") {
+                        
+                        Button(justSaved ? "已保存" : "保存") {
                             settings.defaultPayroll = payrollDraft
+                            hasUnsavedChanges = false
+                            justSaved = true
+                            // “已保存”状态 2 秒后自动恢复为“保存”
+//                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+//                                justSaved = false
+//                            }
                         }
+                        .disabled(!hasUnsavedChanges)
+
                         .buttonStyle(.borderedProminent)
+                    }
+                    .onChange(of: payrollDraft) { _ in
+                        hasUnsavedChanges = true
+                        justSaved = false
                     }
                 }
                 .onAppear {

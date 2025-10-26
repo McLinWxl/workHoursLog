@@ -33,18 +33,18 @@ struct ContentView: View {
             }
 
             // MARK: Tab 1 - Statistics
-            Tab("工时统计", systemImage: "chart.xyaxis.line", value: 1) {
-                if logs.isEmpty {
-                    EmptyStateView(
-                        title: "暂无可统计的数据",
-                        message: "添加至少一条工时记录后即可查看统计。",
-                        actionTitle: "新增记录",
-                        action: { modal = .addLog(defaultDate: Date()) }
-                    )
-                } else {
-                    StaticView()
-                }
-            }
+//            Tab("工时统计", systemImage: "chart.xyaxis.line", value: 1) {
+//                if logs.isEmpty {
+//                    EmptyStateView(
+//                        title: "暂无可统计的数据",
+//                        message: "添加至少一条工时记录后即可查看统计。",
+//                        actionTitle: "新增记录",
+//                        action: { modal = .addLog(defaultDate: Date()) }
+//                    )
+//                } else {
+//                    StaticView()
+//                }
+//            }
 
             // MARK: Tab 2 - Settings
             Tab("Settings", systemImage: "gear", value: 2, role: .search) {
@@ -86,6 +86,7 @@ private struct EmptyStateView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .padding(.top, 6)
+                .glassEffect()
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -17,19 +17,10 @@ final class ModelStore: ObservableObject {
     @Published private(set) var container: ModelContainer
 
     // Schema is explicit to avoid accidental entity drift.
-    private let schema = AppSchema.current
+    private let schema = Schema([WorkLog.self, Project.self])
 
     init(cloudEnabled: Bool, settings: UserSettings? = nil) {
-        do {
-            self.container = try Self.makeContainer(schema: schema, cloudEnabled: cloudEnabled)
-        } catch {
-            // 自动回退到本地，防止启动即崩
-            #if DEBUG
-            print("⚠️ Cloud container init failed, fallback to local: \(error)")
-            #endif
-            if let s = settings { s.iCloudSyncEnabled = false }
-            self.container = try! Self.makeContainer(schema: schema, cloudEnabled: false)
-        }
+        self.container = try! Self.makeContainer(schema: schema, cloudEnabled: cloudEnabled)
     }
     
     static func makeContainer(schema: Schema, cloudEnabled: Bool) throws -> ModelContainer {

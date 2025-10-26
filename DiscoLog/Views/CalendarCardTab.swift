@@ -25,7 +25,7 @@ struct CalendarCardTab: View {
     @State private var year = Date().yearInt
     @State private var month = Date().monthInt
     @State private var modal: ModalType?
-    @State private var addDay: Date?
+//    @State private var addDay: Date?
 
     @Environment(\.colorScheme) private var cs
     @EnvironmentObject var settings: UserSettings
@@ -45,7 +45,7 @@ struct CalendarCardTab: View {
                     allLogs: allLogs, // MonthSection does its own per-day slicing
                     onTapLog: { modal = .editLog($0) },
                     onTapRestDay: { day in
-                        addDay = day
+//                        addDay = day
                         modal  = .addLog(defaultDate: day)
                     }
                 )
@@ -267,6 +267,15 @@ struct MonthlyEarningsCard: View {
                     row("休息日加班",    hours: s.hours.restDayOT, amount: s.amountRestDayOT)
                     row("节假日加班",     hours: s.hours.holidayOT, amount: s.amountHolidayOT)
                 }
+                if s.hasUnassignedButNoDefault {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text("Unassigned logs are ignored. Set a default payroll in Settings.")
+                        Spacer()
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
             } else {
                 Text("本月暂无记录")
                     .font(.footnote)
@@ -280,20 +289,14 @@ struct MonthlyEarningsCard: View {
                 .glassEffect(in: .rect(cornerRadius: 20))
         )
     }
-
     private func row(_ title: String, hours: Double, amount: Double) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(title)
-                .frame(width: 90, alignment: .leading)
+        GridRow {
+            Text(title).gridColumnAlignment(.leading)
             Spacer(minLength: 0)
-            
             Text(String(format: "%.1f 小时", hours))
-                .frame(width: 80, alignment: .trailing)
                 .padding(.horizontal)
-            
-            Text(currency(amount))
-                .fontWeight(.semibold)
-                .frame(width: 80, alignment: .trailing)
+            Text(currency(amount)).fontWeight(.semibold)
+                .gridColumnAlignment(.leading)
         }
     }
 

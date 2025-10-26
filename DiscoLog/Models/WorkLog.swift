@@ -13,20 +13,21 @@ import Combine
 
 @Model
 final class WorkLog {
-    @Attribute(.unique) var syncID: UUID = UUID()
+    var syncID: UUID = UUID()
 
     // Core times
-    var startTime: Date { didSet { touch() } }
-    var endTime: Date   { didSet { touch() } }
+    var startTime: Date = Date.now  { didSet { touch() } }
+    var endTime: Date = Date.now  { didSet { touch() } }
     
     var isRestDay: Bool = false  { didSet { touch() } }
     var isHoliday: Bool = false  { didSet { touch() } }
 
     // Relations
-    @Relationship var project: Project? // optional; logs can exist without project
-
+    @Relationship(deleteRule: .nullify, inverse: \Project.workLogs)
+    var project: Project? = nil
+    
     /// Updated whenever a persisted field changes.
-    var updatedAt: Date
+    var updatedAt: Date = Date.now
 
     // MARK: Init
     init(startTime: Date, endTime: Date, isRestDay: Bool = false, isHoliday: Bool = false, syncID: UUID = UUID(), project: Project? = nil) {
