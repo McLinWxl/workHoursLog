@@ -261,11 +261,19 @@ struct MonthlyEarningsCard: View {
             Divider()
 
             if let s = summary {
-                Grid(horizontalSpacing: 12, verticalSpacing: 8) {
-                    row("正班收入",          hours: s.hours.regular,   amount: s.amountRegular)
-                    row("工作日加班",     hours: s.hours.workdayOT, amount: s.amountWorkdayOT)
-                    row("休息日加班",    hours: s.hours.restDayOT, amount: s.amountRestDayOT)
-                    row("节假日加班",     hours: s.hours.holidayOT, amount: s.amountHolidayOT)
+                if !(s.hours.restDayOT == 0) {
+                    Grid(horizontalSpacing: 12, verticalSpacing: 8) {
+                        row("正班收入",          hours: s.hours.regular,   amount: s.amountRegular)
+                        row("工作日加班",     hours: s.hours.workdayOT, amount: s.amountWorkdayOT)
+                        row("休息日加班",    hours: s.hours.restDayOT, amount: s.amountRestDayOT)
+                        row("节假日加班",     hours: s.hours.holidayOT, amount: s.amountHolidayOT)
+                    }
+                } else {
+                    Grid(horizontalSpacing: 12, verticalSpacing: 8) {
+                        row("正班收入",          hours: s.hours.regular,   amount: s.amountRegular)
+                        row("加班收入",     hours: s.hours.workdayOT, amount: s.amountWorkdayOT)
+                        row("节假日加班",     hours: s.hours.holidayOT, amount: s.amountHolidayOT)
+                    }
                 }
                 if s.hasUnassignedButNoDefault {
                     HStack(spacing: 6) {
@@ -294,10 +302,12 @@ struct MonthlyEarningsCard: View {
             Text(title).gridColumnAlignment(.leading)
             Spacer(minLength: 0)
             Text(String(format: "%.1f 小时", hours))
-                .padding(.horizontal)
+//                .padding(.horizontal)
                 .gridColumnAlignment(.leading)
+                .lineLimit(1)
             Text(amount, format: .currency(code: "CNY")).fontWeight(.semibold)
-                .gridColumnAlignment(.leading)
+                .padding(.leading)
+                .gridColumnAlignment(.trailing)
         }
     }
 
@@ -474,6 +484,7 @@ fileprivate struct DayCell: View {
 
     private var hasWork: Bool { !logsOfDay.isEmpty }
     private var hasOvernight: Bool { logsOfDay.contains { $0.isOvernight } }
+    private var isHoliday: Bool { logsOfDay.contains{ $0.isHoliday}}
     private var totalSeconds: TimeInterval { logsOfDay.reduce(0) { $0 + $1.duration } }
 
     var body: some View {
@@ -500,25 +511,45 @@ fileprivate struct DayCell: View {
             if !isToday && !isFuture {
                 RoundedRectangle(cornerRadius: 12).fill(backgroundFill).frame(height: 50)
             }
+            
+            let decimal = Double(hh) + Double(mm) / 60.0
 
             VStack(spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(String(format: "%02d", day.dayInt))
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(primaryText)
-                    Spacer(minLength: 0)
+                ZStack (alignment: .topTrailing) {
+                    HStack(spacing: 6) {
+                        Text(String(format: "%02d", day.dayInt))
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(primaryText)
+                        Spacer(minLength: 0)
+
+                    }
+                        if isHoliday && !(decimal == 0) {
+                            HStack {
+                                Spacer(minLength: 0)
+                                Image(systemName: "party.popper.fill")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: 10)
+                            }
+                        }
                 }
 
                 HStack {
                     Spacer(minLength: 0)
                     if hasWork {
-                        let decimal = Double(hh) + Double(mm) / 60.0
-                        let formatted = decimal.truncatingRemainder(dividingBy: 1) == 0
-                        ? String(format: "%.0fh", decimal)
-                        : String(format: "%.1fh", decimal)
-                        Text(formatted)
-                            .font(.caption.weight(isFuture ? .regular : .semibold))
-                            .foregroundStyle(accentText)
+                        if isHoliday && decimal == 0 {
+                            Text("假").font(.caption)
+                                .foregroundStyle(accentText)
+
+                        } else {
+                            let formatted = decimal.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(format: "%.0fh", decimal)
+                            : String(format: "%.1fh", decimal)
+                            Text(formatted)
+                                .font(.caption.weight(isFuture ? .regular : .semibold))
+                                .foregroundStyle(accentText)
+                        }
+
                     } else {
                         if isFuture {
                             Text("").font(.caption)
@@ -542,6 +573,12 @@ fileprivate struct DayCell: View {
                 Color(red: 0.72, green: 0.83, blue: 0.80, opacity: 1.0)
             ], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
+        if isHoliday {
+            return AnyShapeStyle(LinearGradient(colors: [
+                .orange.opacity(0.8),
+                .orange.opacity(0.9)
+            ], startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
         if hasOvernight {
             return AnyShapeStyle(LinearGradient(colors: [
                 Color(red: 0.52, green: 0.45, blue: 0.80, opacity: 1.0),
@@ -555,11 +592,17 @@ fileprivate struct DayCell: View {
     }
 
     private var primaryText: Color {
+        if isHoliday {
+            return Color.primary
+        }
         guard hasWork else { return Color(red: 0.12, green: 0.13, blue: 0.13, opacity: 1.0) }
         return hasOvernight ? .white : Color(red: 0.12, green: 0.12, blue: 0.13, opacity: 1.0)
     }
 
     private var accentText: Color {
+        if isHoliday {
+            return Color.primary
+        }
         guard hasWork else { return Color(red: 0.36, green: 0.38, blue: 0.37, opacity: 1.0) }
         return hasOvernight
         ? Color(red: 1.00, green: 0.62, blue: 0.04, opacity: 1.0)

@@ -148,7 +148,7 @@ struct CompensationEngine {
             let explicitHoliday = daySlices.contains { $0.isHoliday }
             let explicitRest    = daySlices.contains { $0.isRestDay }
 
-            let day = daySlices.first?.day ?? Date()
+//            let day = daySlices.first?.day ?? Date()
             
             
             let isHolidayDay = explicitHoliday
@@ -184,8 +184,24 @@ struct CompensationEngine {
         var b = BucketHours()
 
         // Monthly regular quota (based on calendar workdays, not per-log flags)
-        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar))
+//        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar))
+        
+//        let holidayCount = Set(
+//            sliced
+//                .filter { $0.isHoliday }
+//                .map { calendar.startOfDay(for: $0.start) }
+//        ).count
+//        
+//        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar)) - holidayCount
+        
+        let workdayCount = Set(
+            sliced
+                .filter { !($0.isHoliday) && !($0.isRestDay) }
+                .map { calendar.startOfDay(for: $0.start) }
+        ).count
+        
         var remainingRegular = Double(workdayCount) * max(0, hoursPerWorkday)
+        
 
         for s in sliced.sorted(by: { $0.start < $1.start }) {
             // Resolve slice type: flags first, then weekend fallback
@@ -193,10 +209,10 @@ struct CompensationEngine {
                 b.add(.overtimeHoliday, hours: s.hours)
                 continue
             }
-            if s.isRestDay {
-                b.add(.overtimeRestDay, hours: s.hours)
-                continue
-            }
+//            if s.isRestDay {
+//                b.add(.overtimeRestDay, hours: s.hours)
+//                continue
+//            }
             // Workday: consume remaining monthly regular quota
             let reg = min(remainingRegular, s.hours)
             let ot  = max(0, s.hours - reg)

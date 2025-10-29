@@ -42,9 +42,10 @@ struct LogForm: View {
     // Payroll preview
     @State private var payPreview: PayrollStatement?
     private let engine = CompensationEngine()
+    
+    @State private var isHolidayOverWorkFlag: Bool = false
 
     // MARK: - Init
-    
 
 
     init(workLog: WorkLog, isEdit: Bool, prefillProjectID: UUID?) {
@@ -88,7 +89,7 @@ struct LogForm: View {
         let e = cal.dateComponents([.hour, .minute], from: endClock)
         let sM = (s.hour ?? 0) * 60 + (s.minute ?? 0)
         let eM = (e.hour ?? 0) * 60 + (e.minute ?? 0)
-        return eM <= sM
+        return eM < sM
     }
 
     private var durationSeconds: TimeInterval {
@@ -120,87 +121,95 @@ struct LogForm: View {
                             recomputePayPreview()
                         }
                     )
+                    if isHolidayFlag {
+                        Toggle(isOn: $isHolidayOverWorkFlag) {
+                            Text("节假日加班")
+                        }
+                    }
+                    
                 }footer: {
                     if selectedProject == nil {
                         Text("未选择项目将以默认统计口径计时，无法计入项目维度的薪资统计。")
                     }
                 }
+                
 
-                // MARK: Date & Time
-                Section {
-                    VStack {
-                        DayFlagsPicker(day: baseDay, isRestDay: $isRestDayFlag, isHoliday: $isHolidayFlag, isEdit: isEdit)
-                            .onChange(of: isRestDayFlag) { _ in recomputePayPreview() }
-                            .onChange(of: isHolidayFlag) { _ in recomputePayPreview() }
-                        DatePicker(
-                            "选择日期",
-                            selection: $baseDay,
-                            in: ...Calendar.current.date(byAdding: .day, value: 365, to: Date())!,
-                            displayedComponents: .date
-                        )
-                        .datePickerStyle(.graphical)
-                        .environment(\.locale, .init(identifier: "zh-Hans-CN"))
-
-                        Divider()
-
-                        HStack(alignment: .center) {
-                            Text("开始时间")
-                                .foregroundStyle(.secondary)
-                                .frame(height: 80)
-                                .padding(.leading, 10)
-                            Spacer(minLength: 0)
-                            TimeWheel(date: $startClock)
-                                .padding(.trailing, 10)
-                        }
-                        .offset(y: 10)
-
-                        HStack(alignment: .center) {
-                            if isOvernightByClock {
-                                HStack {
-                                    OvernightBadge()
-                                        .offset(x: -8)
-                            
-
-                                    Text("结束时间")
-                                        .foregroundStyle(.orange)
-                                        .padding(.leading, 5)
-                                        .offset(x: -15)
-                                    Spacer(minLength: 0)
-                                }
-                            } else {
-                                Text("结束时间")
+                
+                if !isHolidayFlag || isHolidayOverWorkFlag {
+                    Section {
+                        VStack {
+                            DatePicker(
+                                selection: $baseDay,
+                                in: ...Calendar.current.date(byAdding: .day, value: 365, to: Date())!,
+                                displayedComponents: .date
+                            ) {
+                                Text("选择日期")
                                     .foregroundStyle(.secondary)
+                                    .frame(height: 30)
+                                    .padding(.leading, 10)
+                            }
+                            .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+
+
+                            HStack(alignment: .center) {
+                                Text("开始时间")
+                                    .foregroundStyle(.secondary)
+                                    .frame(height: 80)
                                     .padding(.leading, 10)
                                 Spacer(minLength: 0)
+                                TimeWheel(date: $startClock)
+                                    .padding(.trailing, 7)
                             }
-                            TimeWheel(date: $endClock)
-                                .padding(.trailing, 15)
+                            .offset(y: 10)
+
+                            HStack(alignment: .center) {
+                                if isOvernightByClock {
+                                    HStack {
+                                        OvernightBadge()
+                                            .offset(x: -8)
+                                
+
+                                        Text("结束时间")
+                                            .foregroundStyle(.orange)
+                                            .padding(.leading, 5)
+                                            .offset(x: -15)
+                                        Spacer(minLength: 0)
+                                    }
+                                } else {
+                                    Text("结束时间")
+                                        .foregroundStyle(.secondary)
+                                        .padding(.leading, 10)
+                                    Spacer(minLength: 0)
+                                }
+                                TimeWheel(date: $endClock)
+                                    .padding(.trailing, 7)
+                            }
                         }
+                        .onAppear(perform: hydrateFromModel)
+                        .onChange(of: baseDay) { _ in recomputeDateTimes(); recomputePayPreview() }
+                        .onChange(of: startClock) { _ in recomputeDateTimes(); recomputePayPreview() }
+                        .onChange(of: endClock) { _ in recomputeDateTimes(); recomputePayPreview() }
                     }
-                    .onAppear(perform: hydrateFromModel)
-                    .onChange(of: baseDay) { _ in recomputeDateTimes(); recomputePayPreview() }
-                    .onChange(of: startClock) { _ in recomputeDateTimes(); recomputePayPreview() }
-                    .onChange(of: endClock) { _ in recomputeDateTimes(); recomputePayPreview() }
-                }
-                // MARK: Payroll preview
-                Section {
-                    if let stmt = payPreview, let prj = selectedProject {
+                    // MARK: Payroll preview
+                    Section {
+                        if let stmt = payPreview, let prj = selectedProject {
 
 
-                        PayPreviewView(statement: stmt, cfg: prj.payroll)
-                    } else {
-                        HStack {
-                            Image(systemName: "info.circle")
-                            Text("选择项目并设置时间后，将显示基于项目策略的计薪预览。")
-                            Spacer()
+                            PayPreviewView(isStandardHour: workLog.project?.payroll.mode == .standardHours, statement: stmt, cfg: prj.payroll)
+                        } else {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                Text("选择项目并设置时间后，将显示基于项目策略的计薪预览。")
+                                Spacer()
+                            }
+                            .foregroundStyle(.secondary)
                         }
-                        .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("计薪预览")
-                } footer: {
-                    if selectedProject?.payroll.mode == .comprehensiveHours {
-                        Text("提示：综合工时制的“单条记录”预览假定月度额度尚未消耗，最终金额以月度结算为准。")
+                    } header: {
+                        Text("计薪预览")
+                    } footer: {
+                        if selectedProject?.payroll.mode == .comprehensiveHours {
+                            Text("提示：综合工时制的“单条记录”预览假定月度额度尚未消耗，最终金额以月度结算为准。")
+                        }
                     }
                 }
             }
@@ -245,7 +254,26 @@ struct LogForm: View {
                 revertTask?.cancel()
             }
             .safeAreaInset(edge: .top) {
-                TopSummaryBar(date: startTime, duration: durationHM)
+                VStack {
+
+                    
+                    DayFlagsPicker(isStandardHours: workLog.project?.payroll.mode == .standardHours, day: baseDay, isRestDay: $isRestDayFlag, isHoliday: $isHolidayFlag, isEdit: isEdit)
+                        .onChange(of: isRestDayFlag) { _ in recomputePayPreview() }
+                        .onChange(of: isHolidayFlag) { _ in recomputePayPreview() }
+                        .padding(.horizontal)
+                    
+                    if isHolidayFlag && !isHolidayOverWorkFlag {
+                        TopSummaryBarHolidayRest(date: startTime)
+                            .frame(height: 50)
+                            .offset(y: -12)
+                    } else {
+                        TopSummaryBar(date: startTime, duration: durationHM)
+                            .frame(height: 50)
+                            .offset(y: -12)
+
+                    }
+
+                }
             }
         }
     }
@@ -289,12 +317,18 @@ struct LogForm: View {
     // MARK: - Save
 
     private func save() {
-        guard endTime > startTime else { showValidation = true; return }
+        guard endTime >= startTime else { showValidation = true; return }
+        
+        if isHolidayFlag && !isHolidayOverWorkFlag {
+            workLog.startTime = startTime
+            workLog.endTime   = workLog.startTime
+        } else {
+            workLog.startTime = startTime
+            workLog.endTime   = endTime
+        }
+            workLog.isRestDay = isRestDayFlag
+            workLog.isHoliday = isHolidayFlag
 
-        workLog.startTime = startTime
-        workLog.endTime   = endTime
-        workLog.isRestDay = isRestDayFlag
-        workLog.isHoliday = isHolidayFlag
 
         // 仅在保存时，把选中的项目写回模型
         if let id = selectedProjectID,
@@ -371,6 +405,7 @@ fileprivate enum DayKind: String, CaseIterable, Identifiable {
 }
 
 fileprivate struct DayFlagsPicker: View {
+    let isStandardHours: Bool
     let day: Date                       // ← 传入所选日期（用于默认值）
     let isEdit: Bool
     @Binding var isRestDay: Bool
@@ -380,52 +415,70 @@ fileprivate struct DayFlagsPicker: View {
     @State private var userOverridden = false
 
     // Init derives initial selection from flags; if both false, fallback by weekend rule
-    init(day: Date, isRestDay: Binding<Bool>, isHoliday: Binding<Bool>, isEdit: Bool) {
+    init(isStandardHours: Bool, day: Date, isRestDay: Binding<Bool>, isHoliday: Binding<Bool>, isEdit: Bool) {
         self.day = day
+        self.isStandardHours = isStandardHours
         self._isRestDay = isRestDay
         self._isHoliday = isHoliday
         self.isEdit = isEdit
         var initial = Self.deriveSelection(day: day,
-                                           isRest: isRestDay.wrappedValue,
+                                           isRest: isRestDay.wrappedValue && !(isStandardHours),
                                            isHoliday: isHoliday.wrappedValue)
         if isEdit {
-            initial = DayFlagsPicker.fromFlags(isRest: isRestDay.wrappedValue,
+            initial = DayFlagsPicker.fromFlags(isRest: isRestDay.wrappedValue && !(isStandardHours),
                                                isHoliday: isHoliday.wrappedValue)
         } else {
-            let wd = Calendar.current.component(.weekday, from: day) // 1=Sun ... 7=Sat
-            let isWeekend = (wd == 1 || wd == 7)
+//            let wd = Calendar.current.component(.weekday, from: day) // 1=Sun ... 7=Sat
+//            let isWeekend = (wd == 1 || wd == 7)
             
-            initial = DayFlagsPicker.defaultForCreate(day: day)
+            initial = DayFlagsPicker.defaultForCreate(day: day, isStandardHours: isStandardHours)
         }
         _selection = State(initialValue: initial)
         
     }
 
     var body: some View {
-        Picker("日期标记", selection: $selection) {
-            Text("工作日").tag(DayKind.workday)
-            Text("休息日").tag(DayKind.restDay)
-            Text("节假日").tag(DayKind.holiday)
+        if isStandardHours {
+            Picker("日期标记", selection: $selection) {
+                Text("工作日").tag(DayKind.workday)
+                Text("休息日").tag(DayKind.restDay)
+                Text("节假日").tag(DayKind.holiday)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selection) { newValue in
+                userOverridden = true
+                writeFlags(from: newValue)
+            }
+
+            .onChange(of: day) { _ in
+                guard !isEdit, userOverridden == false else { return }
+                selection = DayFlagsPicker.defaultForCreate(day: day, isStandardHours: isStandardHours)
+                writeFlags(from: selection)
+            }
+            .onAppear {
+                writeFlags(from: selection)
+            }
+        } else {
+            Picker("日期标记", selection: $selection) {
+                Text("工作日").tag(DayKind.workday)
+                Text("节假日").tag(DayKind.holiday)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selection) { newValue in
+                userOverridden = true
+                writeFlags(from: newValue)
+            }
+
+            .onChange(of: day) { _ in
+                guard !isEdit, userOverridden == false else { return }
+                selection = DayFlagsPicker.defaultForCreate(day: day, isStandardHours: isStandardHours)
+                writeFlags(from: selection)
+            }
+            .onAppear {
+                writeFlags(from: selection)
+            }
         }
-        .pickerStyle(.segmented)
-        .pickerStyle(.segmented)
-        // 用户显式选择 → 锁定（不再应用任何默认）
-        .onChange(of: selection) { newValue in
-            userOverridden = true
-            writeFlags(from: newValue)
-        }
-        // 日期变化时：
-        // - Create 且用户尚未手动改动 → 根据新日期再给一次默认
-        // - Edit 或用户已改动 → 不动
-        .onChange(of: day) { _ in
-            guard !isEdit, userOverridden == false else { return }
-            selection = DayFlagsPicker.defaultForCreate(day: day)
-            writeFlags(from: selection)
-        }
-        // 首次渲染时，同步一次当前 selection 到 flags，避免外部与内部不一致
-        .onAppear {
-            writeFlags(from: selection)
-        }
+
     }
 
     // Weekend fallback only for defaulting; NOT used in computation
@@ -455,17 +508,23 @@ fileprivate struct DayFlagsPicker: View {
     }
 
     /// Create：若无标记，则按“周末休息、工作日工作”给一次性默认
-    private static func defaultForCreate(day: Date) -> DayKind {
+    private static func defaultForCreate(day: Date, isStandardHours: Bool) -> DayKind {
 //        if isHoliday { return .holiday }
 //        if isRest    { return .restDay }
-        let wd = Calendar.current.component(.weekday, from: day) // 1=Sun ... 7=Sat
-        let isWeekend = (wd == 1 || wd == 7)
-        return isWeekend ? .restDay : .workday
+        if isStandardHours {
+            let wd = Calendar.current.component(.weekday, from: day) // 1=Sun ... 7=Sat
+            let isWeekend = (wd == 1 || wd == 7)
+            return isWeekend ? .restDay : .workday
+        } else {
+            return .workday
+        }
+
     }
 }
 // MARK: - Pay preview
 
 fileprivate struct PayPreviewView: View {
+    let isStandardHour: Bool
     let statement: PayrollStatement
     let cfg: PayrollConfig
 
@@ -484,16 +543,27 @@ fileprivate struct PayPreviewView: View {
             }
             Divider()
             Grid(horizontalSpacing: 12, verticalSpacing: 8) {
-                row("正班收入", hours: statement.hours.regular, amount: statement.amountRegular)
-                row("工作日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.workday))",
-                    hours: statement.hours.workdayOT, amount: statement.amountWorkdayOT)
-                row("休息日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.restDay))",
-                    hours: statement.hours.restDayOT, amount: statement.amountRestDayOT)
-                row("节假日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.holiday))",
-                    hours: statement.hours.holidayOT, amount: statement.amountHolidayOT)
+                if !isStandardHour {
+                    row("正班收入", hours: statement.hours.regular, amount: statement.amountRegular)
+                    row("加班收入 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.workday))",
+                        hours: statement.hours.workdayOT, amount: statement.amountWorkdayOT)
+                    row("节假日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.holiday))",
+                        hours: statement.hours.holidayOT, amount: statement.amountHolidayOT)
+                } else {
+                    row("正班收入", hours: statement.hours.regular, amount: statement.amountRegular)
+                    row("工作日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.workday))",
+                        hours: statement.hours.workdayOT, amount: statement.amountWorkdayOT)
+                    row("休息日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.restDay))",
+                        hours: statement.hours.restDayOT, amount: statement.amountRestDayOT)
+                    row("节假日加班 ×\(String(format: "%.1f ", cfg.rateTable.multipliers.holiday))",
+                        hours: statement.hours.holidayOT, amount: statement.amountHolidayOT)
+                }
+
             }
         }
     }
+    
+    
 
     private func row(_ title: String, hours: Double, amount: Decimal) -> some View {
         GridRow {
@@ -531,6 +601,30 @@ private struct TopSummaryBar: View {
                 Text("\(duration.h) 小时 \(duration.m) 分钟 ")
                     .font(.title2).fontWeight(.bold)
                     .foregroundStyle(.orange)
+                    .offset(x: -20)
+            }
+        }
+        .padding(EdgeInsets(top: 10, leading: 17, bottom: 0, trailing: 17))
+    }
+}
+
+private struct TopSummaryBarHolidayRest: View {
+    let date: Date
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .frame(maxWidth: .infinity, maxHeight: 50)
+                .opacity(0)
+                .glassEffect(in: .rect(cornerRadius: 25))
+            HStack {
+                Text(date, format: .dateTime.year().month().day())
+                    .foregroundStyle(.secondary)
+                    .offset(x: 20)
+                Spacer(minLength: 0)
+                Text("节假日休息")
+                    .font(.title2).fontWeight(.bold)
+                    .foregroundStyle(.green)
                     .offset(x: -20)
             }
         }
