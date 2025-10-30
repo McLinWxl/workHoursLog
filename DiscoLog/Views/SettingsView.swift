@@ -72,204 +72,304 @@ struct SettingsView: View {
                 .background(Color.clear)
                 // Dashboard
                 
-
+                
+                
                 // Appearance
-                Section("显示外观") {
-                    Picker("外观", selection: $settings.theme) {
-                        ForEach(UserSettings.Theme.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                // Sync
-                Section("数据同步") {
-                    Toggle(isOn: Binding(
-                        get: { settings.iCloudSyncEnabled },
-                        set: { newValue in Task { await toggleCloud(newValue) } }
-                    )) {
-                        Label("iCloud 同步", systemImage: "cloud")
-                    }
-                }
-
-                // Defaults
                 Section {
-                    DatePicker("默认开始时间", selection: $settings.defaultStart, displayedComponents: .hourAndMinute)
-                    DatePicker("默认结束时间", selection: $settings.defaultEnd, displayedComponents: .hourAndMinute)
-                } header: {
-                    Text("记录偏好")
-                } footer: {
-                    Text("若结束时间早于或等于开始时间，则视为跨日记录。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Projects + Payroll
-                Section {
-                    HStack {
-                        Label("项目与计薪", systemImage: "briefcase.fill")
-                        Spacer()
-                        Button {
-                            showNewProject = true
-                        } label: {
-                            Label("新建项目", systemImage: "plus.circle.fill")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    ProjectList(
-                        projects: projects,
-                        onEdit: { editingProject = $0 },
-                        onToggleArchive: toggleArchive(_:),
-                        onDelete: deleteProject(_:)
-                    )
-                    
-                    Picker("默认项目", selection: Binding<UUID?>(
-                        get: { settings.defaultProjectID },
-                        set: { settings.defaultProjectID = $0 }
-                    )) {
-                        Text("无").tag(UUID?.none)
-                        ForEach(projects.filter { !$0.isArchived }, id: \.id) { prj in
-                            HStack(spacing: 6) {
-                                Text(prj.name)
+                    NavigationLink("外观主题与数据同步") {
+                        NavigationStack {
+                            Form {
+                                Section("外观主题") {
+                                    Picker("外观", selection: $settings.theme) {
+                                        ForEach(UserSettings.Theme.allCases) { Text($0.rawValue).tag($0) }
+                                    }
+                                    .pickerStyle(.segmented)
+                                }
+                                Section("数据同步") {
+                                    Toggle(isOn: Binding(
+                                        get: { settings.iCloudSyncEnabled },
+                                        set: { newValue in Task { await toggleCloud(newValue) } }
+                                    )) {
+                                        Label("iCloud 同步", systemImage: "cloud")
+                                    }
+                                }
                             }
-                            .tag(Optional.some(prj.id))
+                            .navigationTitle("外观与数据")
                         }
                     }
                 } header: {
-                    Text("项目与薪酬策略")
-                } footer: {
-                    Text("新建工时记录时，采用默认项目。如项目未选定或被删除，则自动替补为列表首相（如有）。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    Text("偏好选项")
                 }
+                
+                
+
+                Section {
+                    NavigationLink("工时记录说明") {
+                        NavigationStack {
+                            Form {
+                                Section {
+                                    VStack(alignment: .leading, spacing: 15) {
+                                        Text("标准工时制是最常见的工时管理模式，适用于工作时间稳定、劳动节奏固定的岗位。")
+                                            .bold()
+                                        Divider()
+                                        VStack(alignment: .leading) {
+                                            Text("加班计算：")
+                                                .bold()
+                                            Text("工作日: 超出每日基础工时的部分，计为工作日加班； \n休息日： 工作且无调休，计为休息日加班； \n法定节假日： 计为节假日加班。")
+                                        }
+                                    }
+                                } header: {
+                                    Text("关于标准工时制")
+                                        .font(.title2.bold())
+                                        .foregroundStyle(systemScheme == .dark ? .white: .black)
+                                }
+                                
+                                Section {
+                                    VStack(alignment: .leading, spacing: 15) {
+                                        Text("综合工时制适用于工作时长不均衡、存在周期性调班的岗位。")
+                                            .bold()
+                                        Divider()
+                                        VStack(alignment: .leading) {
+                                            Text("加班计算：")
+                                                .bold()
+                                            Text("一个月内，超过法定工时（工作日天数 × 每日法定工作时长）外的工时即为加班工时。")
+                                        }
+                                        VStack {
+                                            Text("注意：当您采用综合工时制记录时，每月的法定工作日计算为您已有记录日且非法定节假日的天数。因此，请正确标注工作日与节假日（若存在请假等情况，请标记当天为工作日休息；同样地节假日也应被标记）。")
+                                                .lineLimit(nil)
+                                        }
+                                        
+
+                                    }
+                                } header: {
+                                    Text("关于综合工时制")
+                                        .font(.title2.bold())
+                                        .foregroundStyle(systemScheme == .dark ? .white: .black)
+                                }
+                            }
+                            .navigationTitle("工时记录说明")
+                        }
+                    }
+                    
+                    NavigationLink("默认记录设置") {
+                        NavigationStack {
+                            Form {
+                                Section {
+                                    DatePicker("默认开始时间", selection: $settings.defaultStart, displayedComponents: .hourAndMinute)
+                                    DatePicker("默认结束时间", selection: $settings.defaultEnd, displayedComponents: .hourAndMinute)
+                                } header: {
+                                    Text("默认起止时间")
+                                } footer: {
+                                    Text("若结束时间早于或等于开始时间，则视为跨日记录。")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Section {
+                                    Picker("默认记录项目", selection: Binding<UUID?>(
+                                        get: { settings.defaultProjectID },
+                                        set: { settings.defaultProjectID = $0 }
+                                    )) {
+                                        Text("无").tag(UUID?.none)
+                                        ForEach(projects.filter { !$0.isArchived }, id: \.id) { prj in
+                                            HStack(spacing: 6) {
+                                                Text(prj.name)
+                                            }
+                                            .tag(Optional.some(prj.id))
+                                        }
+                                    }
+                                } header: {
+                                    Text("默认记录项目")
+                                } footer: {
+                                    VStack (alignment: .leading) {
+                                        Text("请在“项目设置与薪酬策略”设置中添加项目以选取默认。")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                        Text("若默认项目被删除或归档，请重新设置。")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                }
+                            }
+                            .navigationTitle("默认记录设置")
+                        }
+                    }
+
+                } header: {
+                    Text("工时记录偏好")
+                }
+                
+                Section {
+                    NavigationLink("项目设置") {
+                        NavigationStack {
+                            Form {
+                                // Projects + Payroll
+                                Section {
+                                    HStack {
+                                        Text("项目列表")
+                                        Spacer()
+                                        Button {
+                                            showNewProject = true
+                                        } label: {
+                                            Label("新建项目", systemImage: "plus.circle.fill")
+                                        }
+                                        .buttonStyle(.borderless)
+                                    }
+                                    ProjectList(
+                                        projects: projects,
+                                        onEdit: { editingProject = $0 },
+                                        onToggleArchive: toggleArchive(_:),
+                                        onDelete: deleteProject(_:)
+                                    )
+                                    
+
+                                } header: {
+                                    Text("项目设置")
+                                }
+                                
+                                Section(
+                                    header: Text("默认计薪策略"),
+                                    footer:
+                                            VStack(alignment: .leading) {
+                                                Text("        用于未绑定项目的记录。若不设置，未分配项目的记录不会计入收入统计。")
+                                                    .font(.footnote).foregroundStyle(.secondary)
+                                                Text("        请注意：若需要使用默认策略，请务必保存，否则无法生效")
+                                                    .font(.footnote).foregroundStyle(.secondary)
+                                            }
+                                ) {
+
+                                    Picker("工作制度", selection: $payrollDraft.mode) {
+                                        
+                                        ForEach(WorkMode.allCases) { m in
+                                            Text(label(for: m)).tag(m)
+                                        }
+                                        
+                                    }
+
+                                    // 工时阈值
+                                    if payrollDraft.mode == .standardHours {
+                                        Stepper(value: $payrollDraft.dailyRegularHours, in: 0...24, step: 0.5) {
+                                            HStack {
+                                                Text("每日工时")
+                                                Spacer()
+                                                Text(String(format: "%.1f 小时", payrollDraft.dailyRegularHours))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+
+                                    if payrollDraft.mode == .comprehensiveHours {
+                                        Stepper(value: $payrollDraft.hoursPerWorkday, in: 0...24, step: 0.5) {
+                                            HStack {
+                                                Text("日均工时")
+                                                Spacer()
+                                                Text(String(format: "%.1f 小时/天", payrollDraft.hoursPerWorkday))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+
+                                    // 基础时薪与倍数
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        HStack {
+                                            Text("基础时薪")
+                                            Spacer()
+                                            TextField("¥", value: $payrollDraft.rateTable.basePerHour, format: .number)
+                                                .multilineTextAlignment(.trailing)
+                                                .keyboardType(.decimalPad)
+                                                .frame(width: 80)
+                                                .textFieldStyle(.roundedBorder)
+                                                .submitLabel(.done)
+                                                .onSubmit { hideKeyboard() }
+                                            Text("元/小时")
+                                                .foregroundStyle(.secondary)
+                                        }
+
+                                        Divider().padding(.vertical, 4)
+
+                                        Group {
+                                            HStack {
+                                                Text("工作日加班倍数")
+                                                Spacer()
+                                                Stepper(value: $payrollDraft.rateTable.multipliers.workday, in: 1...5, step: 0.1) {
+                                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.workday))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.vertical,5)
+
+                                            HStack {
+                                                Text("休息日加班倍数")
+                                                Spacer()
+                                                Stepper(value: $payrollDraft.rateTable.multipliers.restDay, in: 1...5, step: 0.1) {
+                                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.restDay))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.vertical,5)
+
+                                            HStack {
+                                                Text("节假日加班倍数")
+                                                Spacer()
+                                                Stepper(value: $payrollDraft.rateTable.multipliers.holiday, in: 1...5, step: 0.1) {
+                                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.holiday))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.vertical,5)
+                                        }
+                                    }
+                                    // Actions
+                                    HStack {
+                                        Button("重置策略") {
+                                            payrollDraft.rateTable = .demo
+                                            payrollDraft.mode = .standardHours
+                                            payrollDraft.dailyRegularHours = 8
+                                            payrollDraft.hoursPerWorkday = 8
+                                            hasUnsavedChanges = true
+                                            justSaved = false
+                                        }
+                                        Spacer()
+                                        
+                                        Button(justSaved ? "已保存" : "请保存") {
+                                            settings.defaultPayroll = payrollDraft
+                                            hasUnsavedChanges = false
+                                            justSaved = true
+                                            // “已保存”状态 2 秒后自动恢复为“保存”
+                //                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                //                                justSaved = false
+                //                            }
+                                        }
+                                        .disabled(!hasUnsavedChanges)
+
+                                        .buttonStyle(.borderedProminent)
+                                    }
+                                    .onChange(of: payrollDraft) { _ in
+                                        hasUnsavedChanges = true
+                                        justSaved = false
+                                    }
+                                }
+                                .onAppear {
+                                    // Hydrate draft from settings if present
+                                    if let cfg = settings.defaultPayroll { payrollDraft = cfg }
+                                }
+                            }
+                            
+                        }
+                    }
+                    
+                    
+                } header: {
+                    Text("项目设置与薪酬策略")
+                }
+                
+
+
                 
                 
                 // Default payroll configuration for unassigned logs
-                Section(header: Text("默认计薪策略"),
-                        footer: Text("用于未绑定项目的记录。若不设置，未分配项目的记录不会计入收入统计。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                ) {
 
-                    Picker("工作制度", selection: $payrollDraft.mode) {
-                        
-                        ForEach(WorkMode.allCases) { m in
-                            Text(label(for: m)).tag(m)
-                        }
-                        
-                    }
-
-                    // 工时阈值
-                    if payrollDraft.mode == .standardHours {
-                        Stepper(value: $payrollDraft.dailyRegularHours, in: 0...24, step: 0.5) {
-                            HStack {
-                                Text("每日工时")
-                                Spacer()
-                                Text(String(format: "%.1f 小时", payrollDraft.dailyRegularHours))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                    if payrollDraft.mode == .comprehensiveHours {
-                        Stepper(value: $payrollDraft.hoursPerWorkday, in: 0...24, step: 0.5) {
-                            HStack {
-                                Text("日均工时")
-                                Spacer()
-                                Text(String(format: "%.1f 小时/天", payrollDraft.hoursPerWorkday))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                    // 基础时薪与倍数
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("基础时薪")
-                            Spacer()
-                            TextField("¥", value: $payrollDraft.rateTable.basePerHour, format: .number)
-                                .multilineTextAlignment(.trailing)
-                                .keyboardType(.decimalPad)
-                                .frame(width: 80)
-                                .textFieldStyle(.roundedBorder)
-                                .submitLabel(.done)
-                                .onSubmit { hideKeyboard() }
-//                                .toolbar {
-//                                    ToolbarItemGroup(placement: .bottomBar) {
-//                                        Spacer()
-//                                        Button("完成") { hideKeyboard() }
-//                                    }
-//                                }
-                            Text("元/小时")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Divider().padding(.vertical, 4)
-
-                        Group {
-                            HStack {
-                                Text("工作日加班倍数")
-                                Spacer()
-                                Stepper(value: $payrollDraft.rateTable.multipliers.workday, in: 1...5, step: 0.1) {
-                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.workday))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical,5)
-
-                            HStack {
-                                Text("休息日加班倍数")
-                                Spacer()
-                                Stepper(value: $payrollDraft.rateTable.multipliers.restDay, in: 1...5, step: 0.1) {
-                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.restDay))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical,5)
-
-                            HStack {
-                                Text("节假日加班倍数")
-                                Spacer()
-                                Stepper(value: $payrollDraft.rateTable.multipliers.holiday, in: 1...5, step: 0.1) {
-                                    Text(String(format: "×%.1f", payrollDraft.rateTable.multipliers.holiday))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical,5)
-                        }
-                    }
-                    // Actions
-                    HStack {
-                        Button("重置策略") {
-                            payrollDraft.rateTable = .demo
-                            payrollDraft.mode = .standardHours
-                            payrollDraft.dailyRegularHours = 8
-                            payrollDraft.hoursPerWorkday = 8
-                            hasUnsavedChanges = true
-                            justSaved = false
-                        }
-                        Spacer()
-                        
-                        Button(justSaved ? "已保存" : "请保存") {
-                            settings.defaultPayroll = payrollDraft
-                            hasUnsavedChanges = false
-                            justSaved = true
-                            // “已保存”状态 2 秒后自动恢复为“保存”
-//                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-//                                justSaved = false
-//                            }
-                        }
-                        .disabled(!hasUnsavedChanges)
-
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .onChange(of: payrollDraft) { _ in
-                        hasUnsavedChanges = true
-                        justSaved = false
-                    }
-                }
-                .onAppear {
-                    // Hydrate draft from settings if present
-                    if let cfg = settings.defaultPayroll { payrollDraft = cfg }
-                }
 
                 // About
                 Section {
@@ -416,7 +516,7 @@ fileprivate struct ProjectList: View {
         }()
         let m = cfg.rateTable.multipliers
         return String(
-            format: "%@ · %.2f元/小时\n倍率: 工作日×%.2f 休息日×%.2f 法定×%.2f",
+            format: "%@ · %.2f元/小时\n工作日加班×%.2f \n休息日加班×%.2f \n节假日加班×%.2f",
             mode, cfg.rateTable.basePerHour, m.workday, m.restDay, m.holiday
         )
     }
