@@ -55,7 +55,7 @@ struct MonthlyEarningsCalculator {
 
         for (key, group) in grouped {
             let cfg: PayrollConfig?
-            if let pid = key {
+            if key != nil {
                 // per-project config
                 guard let anyCfg = group.first?.project?.payroll else { continue }
                 cfg = anyCfg
@@ -67,7 +67,7 @@ struct MonthlyEarningsCalculator {
             guard let useCfg = cfg else { continue }
 
             // Filter invalid ranges and compute
-            let cleaned = group.filter { $0.endTime > $0.startTime }
+            let cleaned = group.filter { $0.endTime >= $0.startTime }
             guard !cleaned.isEmpty else { continue }
 
             let stmt = engine.computeStatement(logs: cleaned, period: period, cfg: useCfg)

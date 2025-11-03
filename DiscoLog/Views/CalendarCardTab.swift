@@ -241,7 +241,7 @@ struct MonthlyEarningsCard: View {
 
     private var summary: MonthlyEarningsSummary? {
         let s = calc.summarize(logs: logs, monthAnchor: monthDate, defaultPayroll: defaultPayroll)
-        return (s.hours.totalHours() > 0 || s.amountTotal > 0) ? s : nil
+        return (s.hours.totalHours() >= 0 || s.amountTotal >= 0) ? s : nil
     }
 
     var body: some View {
@@ -785,7 +785,7 @@ fileprivate struct EditList: View {
 
         let (m0, m1) = Self.monthBounds(year: year, month: month)
         let predicate = #Predicate<WorkLog> { log in
-            log.startTime < m1 && log.endTime > m0
+            log.startTime <= m1 && log.endTime >= m0
         }
         _workLogs = Query(filter: predicate, sort: [SortDescriptor(\WorkLog.startTime, order: .reverse)])
     }

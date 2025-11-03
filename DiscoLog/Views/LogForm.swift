@@ -26,6 +26,7 @@ struct LogForm: View {
     // Day flags
     @State private var isRestDayFlag: Bool
     @State private var isHolidayFlag: Bool
+//    @State private var isWorkDayFlag: Bool
 
     // UI states
     @State private var askDelete = false
@@ -43,7 +44,8 @@ struct LogForm: View {
     @State private var payPreview: PayrollStatement?
     private let engine = CompensationEngine()
     
-    @State private var isHolidayOverWorkFlag: Bool = false
+    @State private var isHolidayOverWorkFlag: Bool = true
+    @State private var isWorkDayRestFlag: Bool = false
 
     // MARK: - Init
 
@@ -64,6 +66,7 @@ struct LogForm: View {
         // Flags come from model (new-log defaults were injected upstream)
         self._isRestDayFlag   = State(initialValue: workLog.isRestDay)
         self._isHolidayFlag   = State(initialValue: workLog.isHoliday)
+//        self._isWorkDayFlag = State(initialValue: !workLog.isHoliday && !workLog.isRestDay)
 
         // Query projects (active only)
         let pred = #Predicate<Project> { $0.isArchived == false }
@@ -125,6 +128,26 @@ struct LogForm: View {
                         Toggle(isOn: $isHolidayOverWorkFlag) {
                             Text("节假日加班")
                         }
+                        .onChange(of: isHolidayOverWorkFlag) { oldValue, newValue in
+                            if newValue {
+                                isWorkDayRestFlag = false
+                            } else {
+                                isWorkDayRestFlag = true
+                            }
+                        }
+                    }
+                    
+                    if !isHolidayFlag && !isRestDayFlag {
+                        Toggle(isOn: $isWorkDayRestFlag) {
+                            Text("工作日请假")
+                        }
+                        .onChange(of: isWorkDayRestFlag) { oldValue, newValue in
+                            if newValue {
+                                isHolidayOverWorkFlag = false
+                            } else {
+                                isHolidayOverWorkFlag =  true
+                            }
+                        }
                     }
                     
                 }footer: {
@@ -135,7 +158,7 @@ struct LogForm: View {
                 
 
                 
-                if !isHolidayFlag || isHolidayOverWorkFlag {
+                if (isHolidayOverWorkFlag) || (!isWorkDayRestFlag) || isRestDayFlag {
                     Section {
                         VStack {
                             DatePicker(
@@ -192,6 +215,9 @@ struct LogForm: View {
                     }
                     // MARK: Payroll preview
                     Section {
+                        
+                        
+                        
                         if let stmt = payPreview, let prj = selectedProject {
 
 
@@ -263,10 +289,15 @@ struct LogForm: View {
                         .padding(.horizontal)
                     
                     if isHolidayFlag && !isHolidayOverWorkFlag {
-                        TopSummaryBarHolidayRest(date: startTime)
+                        TopSummaryBarHolidayRest(infomation: "节假日休息", date: startTime)
                             .frame(height: 50)
                             .offset(y: -12)
-                    } else {
+                    } else if !isHolidayFlag && !isRestDayFlag && isWorkDayRestFlag {
+                        TopSummaryBarHolidayRest(infomation: "工作日请假", date: startTime)
+                            .frame(height: 50)
+                            .offset(y: -12)
+                    }
+                    else {
                         TopSummaryBar(date: startTime, duration: durationHM)
                             .frame(height: 50)
                             .offset(y: -12)
@@ -322,12 +353,21 @@ struct LogForm: View {
         if isHolidayFlag && !isHolidayOverWorkFlag {
             workLog.startTime = startTime
             workLog.endTime   = workLog.startTime
-        } else {
+            workLog.isRestDay = false
+            workLog.isHoliday = true
+        } else if isWorkDayRestFlag && !isHolidayFlag && !isRestDayFlag {
+            workLog.startTime = startTime
+            workLog.endTime   = workLog.startTime
+            workLog.isRestDay = false
+            workLog.isHoliday = false
+        }
+        else {
             workLog.startTime = startTime
             workLog.endTime   = endTime
-        }
             workLog.isRestDay = isRestDayFlag
             workLog.isHoliday = isHolidayFlag
+        }
+
 
 
         // 仅在保存时，把选中的项目写回模型
@@ -354,7 +394,7 @@ struct LogForm: View {
     // MARK: - Payroll recompute
 
     private func recomputePayPreview() {
-        guard let prj = selectedProject, endTime > startTime else {
+        guard let prj = selectedProject, endTime >= startTime else {
             payPreview = nil
             return
         }
@@ -609,6 +649,7 @@ private struct TopSummaryBar: View {
 }
 
 private struct TopSummaryBarHolidayRest: View {
+    let infomation: String
     let date: Date
 
     var body: some View {
@@ -622,7 +663,7 @@ private struct TopSummaryBarHolidayRest: View {
                     .foregroundStyle(.secondary)
                     .offset(x: 20)
                 Spacer(minLength: 0)
-                Text("节假日休息")
+                Text(infomation)
                     .font(.title2).fontWeight(.bold)
                     .foregroundStyle(.green)
                     .offset(x: -20)
@@ -631,6 +672,7 @@ private struct TopSummaryBarHolidayRest: View {
         .padding(EdgeInsets(top: 10, leading: 17, bottom: 0, trailing: 17))
     }
 }
+
 
 private struct OvernightBadge: View {
     var body: some View {
@@ -765,7 +807,7 @@ private struct LogFormPreviewEdit: View {
             name: "Assembly A",
             colorTag: "#7B61FF",
             payroll: PayrollConfig(
-                mode: .standardHours,
+                mode: .comprehensiveHours,
                 periodKind: .monthly,
                 dailyRegularHours: 8,
                 hoursPerWorkday: 8,

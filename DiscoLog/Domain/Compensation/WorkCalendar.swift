@@ -156,7 +156,7 @@ struct CompensationEngine {
 
             var remainingRegular = (isHolidayDay || isRestDay) ? 0.0 : max(0, dailyRegular)
 
-            for s in daySlices.sorted(by: { $0.start < $1.start }) {
+            for s in daySlices.sorted(by: { $0.start <= $1.start }) {
                 let h = s.hours
                 if isHolidayDay {
                     b.add(.overtimeHoliday, hours: h)
@@ -255,24 +255,38 @@ struct CompensationEngine {
             guard clampedEnd > clampedStart else { continue }
 
             var s = clampedStart
-            while s < clampedEnd {
-                let sod     = cal.startOfDay(for: s)
-                let nextDay = cal.date(byAdding: .day, value: 1, to: sod)!   // [sod, nextDay)
-                let sliceEnd = min(nextDay, clampedEnd)                      // 半开区间，不做 ±1 秒
-
-                // 以“分”为单位计算，避免秒级误差
-                let mins = cal.dateComponents([.minute], from: s, to: sliceEnd).minute ?? 0
-
+            
+            if log.startTime == log.endTime {
+                let sod = cal.startOfDay(for: log.startTime)
                 out.append(DaySlice(
-                    start: s,
-                    end: sliceEnd,
+                    start: log.startTime,
+                    end: log.endTime,
                     isRestDay: log.isRestDay,
                     isHoliday: log.isHoliday,
-                    minutes: max(0, mins),
+                    minutes: 0,  // 这一天没有工时
                     day: sod
                 ))
+                
+                
+            } else {
+                while s < clampedEnd {
+                    let sod     = cal.startOfDay(for: s)
+                    let nextDay = cal.date(byAdding: .day, value: 1, to: sod)!
+                    let sliceEnd = min(nextDay, clampedEnd)
 
-                s = sliceEnd  // 前一段的 end 即下一段的 start
+                    let mins = cal.dateComponents([.minute], from: s, to: sliceEnd).minute ?? 0
+
+                    out.append(DaySlice(
+                        start: s,
+                        end: sliceEnd,
+                        isRestDay: log.isRestDay,
+                        isHoliday: log.isHoliday,
+                        minutes: max(0, mins),
+                        day: sod
+                    ))
+
+                    s = sliceEnd  // 前一段的 end 即下一段的 start
+                }
             }
         }
         return out
