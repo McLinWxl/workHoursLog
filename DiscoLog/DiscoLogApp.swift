@@ -16,13 +16,8 @@ struct DiscoLogApp: App {
     init() {
         let settings = UserSettings()
         _userSettings = StateObject(wrappedValue: settings)
-
-        do {
-            let store = try ModelStore(cloudEnabled: settings.iCloudSyncEnabled)
-            _modelStore = StateObject(wrappedValue: store)
-        } catch {
-            fatalError("Failed to initialize ModelStore: \(error.localizedDescription)")
-        }
+        
+        _modelStore = StateObject(wrappedValue: ModelStore(cloudEnabled: settings.iCloudSyncEnabled))
     }
 
     var body: some Scene {
@@ -32,6 +27,7 @@ struct DiscoLogApp: App {
                 .environmentObject(userSettings)
                 .preferredColorScheme(userSettings.theme.colorScheme)
                 .environment(\.locale, .init(identifier: "zh-Hans-CN"))
+                .id(ObjectIdentifier(modelStore.container)) 
         }
         // Use the switchable container managed by ModelStore.
         .modelContainer(modelStore.container)

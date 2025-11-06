@@ -86,12 +86,19 @@ struct SettingsView: View {
                                     .pickerStyle(.segmented)
                                 }
                                 Section("数据同步") {
+//                                    Toggle(isOn: Binding(
+//                                        get: { settings.iCloudSyncEnabled },
+//                                        set: { newValue in Task { await toggleCloud(newValue) } }
+//                                    )) {
+//                                        Label("iCloud 同步", systemImage: "cloud")
+//                                    }
                                     Toggle(isOn: Binding(
                                         get: { settings.iCloudSyncEnabled },
                                         set: { newValue in Task { await toggleCloud(newValue) } }
                                     )) {
                                         Label("iCloud 同步", systemImage: "cloud")
                                     }
+                                    .disabled(isSwitchingCloud)
                                 }
                             }
                             .navigationTitle("外观与数据")
@@ -432,18 +439,54 @@ struct SettingsView: View {
     
     // MARK: - Actions
 
+//    @MainActor
+//    private func toggleCloud(_ on: Bool) async {
+//        do {
+//            try modelContext.save()
+//            let old = modelContext.autosaveEnabled
+//            modelContext.autosaveEnabled = false
+//            defer { modelContext.autosaveEnabled = old }
+//            try await modelStore.switchCloud(to: on)
+//            settings.iCloudSyncEnabled = on
+//        } catch {
+//            alertItem = .init(title: "切换失败", message: error.localizedDescription)
+//        }
+//    }
+    @State private var isSwitchingCloud: Bool = false
+
     @MainActor
     private func toggleCloud(_ on: Bool) async {
+        // Prevent reentry
+        guard !isSwitchingCloud else { return }
+        isSwitchingCloud = true
+
+        // Optional: show a small HUD/alert via alertItem or another state
+        alertItem = .init(title: "正在切换", message: "正在切换 iCloud 存储，请稍候…")
+
         do {
+            // 1) Flush current modelContext (save edits) before snapshot
             try modelContext.save()
-            let old = modelContext.autosaveEnabled
+
+            // 2) Temporarily disable autosave to avoid mid-migration writes
+            let oldAutosave = modelContext.autosaveEnabled
             modelContext.autosaveEnabled = false
-            defer { modelContext.autosaveEnabled = old }
+            defer { modelContext.autosaveEnabled = oldAutosave }
+
+            // 3) Attempt switch (this may throw). ModelStore.switchCloud must be robust.
             try await modelStore.switchCloud(to: on)
+
+            // 4) Success: persist preference
             settings.iCloudSyncEnabled = on
+
+            // 5) Inform user of success (brief)
+            alertItem = .init(title: "切换成功", message: "iCloud 同步已\(on ? "开启" : "关闭")。")
         } catch {
+            // 6) Failure: report error and ensure we remain on a valid local container
             alertItem = .init(title: "切换失败", message: error.localizedDescription)
         }
+
+        // End switching state
+        isSwitchingCloud = false
     }
 
     private func toggleArchive(_ p: Project) {

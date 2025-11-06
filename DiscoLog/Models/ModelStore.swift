@@ -19,34 +19,70 @@ final class ModelStore: ObservableObject {
     // Schema is explicit to avoid accidental entity drift.
     private let schema = Schema([WorkLog.self, Project.self])
 
+//    init(cloudEnabled: Bool, settings: UserSettings? = nil) {
+//        self.container = try! Self.makeContainer(schema: schema, cloudEnabled: cloudEnabled)
+//    }
+    @MainActor
     init(cloudEnabled: Bool, settings: UserSettings? = nil) {
-        self.container = try! Self.makeContainer(schema: schema, cloudEnabled: cloudEnabled)
-    }
-    
-    static func makeContainer(schema: Schema, cloudEnabled: Bool) throws -> ModelContainer {
-        if cloudEnabled {
+        do {
+            self.container = try Self.makeContainer(schema: schema, cloudEnabled: cloudEnabled)
+        } catch {
+            #if DEBUG
+            print("ModelContainer init failed (cloud=\(cloudEnabled)): \(error)")
+            #endif
+            // fallback to local-only container
             do {
-                let cloudCfg = ModelConfiguration(
-                    schema: schema,
-                    isStoredInMemoryOnly: false,
-                    allowsSave: true,
-                    cloudKitDatabase: .automatic
-                )
-                return try ModelContainer(for: schema, configurations: [cloudCfg])
+                self.container = try Self.makeContainer(schema: schema, cloudEnabled: false)
             } catch {
-                #if DEBUG
-                print("❌ Cloud init error: \(error)")
-                #endif
-                // fall through to local
+                fatalError("Failed to create fallback local ModelContainer: \(error)")
             }
         }
-        let localCfg = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            allowsSave: true,
-            cloudKitDatabase: .none
-        )
-        return try ModelContainer(for: schema, configurations: [localCfg])
+    }
+    
+//    static func makeContainer(schema: Schema, cloudEnabled: Bool) throws -> ModelContainer {
+//        if cloudEnabled {
+//            do {
+//                let cloudCfg = ModelConfiguration(
+//                    schema: schema,
+//                    isStoredInMemoryOnly: false,
+//                    allowsSave: true,
+//                    cloudKitDatabase: .automatic
+//                )
+//                return try ModelContainer(for: schema, configurations: [cloudCfg])
+//            } catch {
+//                #if DEBUG
+//                print("❌ Cloud init error: \(error)")
+//                #endif
+//                // fall through to local
+//            }
+//        }
+//        let localCfg = ModelConfiguration(
+//            schema: schema,
+//            isStoredInMemoryOnly: false,
+//            allowsSave: true,
+//            cloudKitDatabase: .none
+//        )
+//        return try ModelContainer(for: schema, configurations: [localCfg])
+//    }
+    static func makeContainer(schema: Schema, cloudEnabled: Bool) throws -> ModelContainer {
+        // Try cloud first when requested, but propagate error to caller
+        if cloudEnabled {
+            let cloudCfg = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                allowsSave: true,
+                cloudKitDatabase: .automatic
+            )
+            return try ModelContainer(for: schema, configurations: [cloudCfg])
+        } else {
+            let localCfg = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                allowsSave: true,
+                cloudKitDatabase: .none
+            )
+            return try ModelContainer(for: schema, configurations: [localCfg])
+        }
     }
 
     // MARK: Factory
@@ -150,24 +186,62 @@ final class ModelStore: ObservableObject {
 // MARK: - DTO (value snapshot)
 
 /// Immutable snapshot used to move data across containers safely.
+//struct WorkLogDTO: Sendable, Hashable {
+//    let syncID: UUID
+//    let startTime: Date
+//    let endTime: Date
+//    let updatedAt: Date
+//
+//    init(syncID: UUID, startTime: Date, endTime: Date, updatedAt: Date) {
+//        self.syncID = syncID
+//        self.startTime = startTime
+//        self.endTime = endTime
+//        self.updatedAt = updatedAt
+//    }
+//
+//    init(from model: WorkLog) {
+//        self.init(syncID: model.syncID,
+//                  startTime: model.startTime,
+//                  endTime: model.endTime,
+//                  updatedAt: model.updatedAt)
+//    }
+//
+//    func materialize() -> WorkLog {
+//        let m = WorkLog(startTime: startTime, endTime: endTime, syncID: syncID)
+//        m.updatedAt = updatedAt
+//        return m
+//    }
+//}
+
 struct WorkLogDTO: Sendable, Hashable {
     let syncID: UUID
     let startTime: Date
     let endTime: Date
     let updatedAt: Date
-
-    init(syncID: UUID, startTime: Date, endTime: Date, updatedAt: Date) {
+    let isRestDay: Bool
+    let isHoliday: Bool
+    let project: Project?    // 外键到 Project
+    // init(from model: WorkLog) -> fill above
+    
+    init(syncID: UUID, startTime: Date, endTime: Date, updatedAt: Date, isRestDay: Bool, isHoliday: Bool, project: Project? = nil) {
         self.syncID = syncID
         self.startTime = startTime
         self.endTime = endTime
         self.updatedAt = updatedAt
+        self.isRestDay = isRestDay
+        self.isHoliday = isHoliday
+        self.project = project
     }
-
+    
     init(from model: WorkLog) {
         self.init(syncID: model.syncID,
                   startTime: model.startTime,
                   endTime: model.endTime,
-                  updatedAt: model.updatedAt)
+                  updatedAt: model.updatedAt,
+                  isRestDay: model.isRestDay,
+                  isHoliday: model.isHoliday,
+                  project: model.project
+        )
     }
 
     func materialize() -> WorkLog {
@@ -176,6 +250,18 @@ struct WorkLogDTO: Sendable, Hashable {
         return m
     }
 }
+
+//struct ProjectDTO: Sendable, Hashable {
+//    let id: UUID
+//    let name: String
+//    let colorTag: String?
+//    let emojiTag: String?
+//    let isArchived: Bool
+//    let sortOrder: Int
+//    let payroll: PayrollConfig
+//    let updatedAt: Date
+//    // init(from: Project)
+//}
 
 // MARK: - Merge Policy
 

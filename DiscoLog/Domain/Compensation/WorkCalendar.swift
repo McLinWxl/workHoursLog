@@ -64,6 +64,16 @@ struct BucketHours: Hashable {
         case .overtimeHoliday:  holidayOT += h
         }
     }
+    
+    mutating func min(_ bucket: PayBucket, hours: Double) {
+        let h = max(0, hours)
+        switch bucket {
+        case .regular:          regular  -= h
+        case .overtimeWorkday:  workdayOT -= h
+        case .overtimeRestDay:  restDayOT -= h
+        case .overtimeHoliday:  holidayOT -= h
+        }
+    }
 
     func totalHours() -> Double { regular + workdayOT + restDayOT + holidayOT }
 }
@@ -90,7 +100,9 @@ struct CompensationEngine {
         period: DateInterval,
         cfg: PayrollConfig
     ) -> PayrollStatement {
+//        print(logs.count)
         let sliced = sliceLogsByDay(logs, limitedTo: period)
+//        print(sliced.count)
         let buckets = classifyAndAccumulate(sliced: sliced, cfg: cfg, monthAnchor: period.start)
 
         let rt = cfg.rateTable
@@ -176,6 +188,17 @@ struct CompensationEngine {
 
     /// Comprehensive: monthly regular quota = workdays * hoursPerWorkday.
     /// Slice-level flags still override for holiday/rest OT classification.
+    ///         // Monthly regular quota (based on calendar workdays, not per-log flags)
+    //        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar))
+            
+    //        let holidayCount = Set(
+    //            sliced
+    //                .filter { $0.isHoliday }
+    //                .map { calendar.startOfDay(for: $0.start) }
+    //        ).count
+    //
+    //        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar)) - holidayCount
+            
     private func classifyComprehensive(
         sliced: [DaySlice],
         monthAnchor: Date,
@@ -183,24 +206,16 @@ struct CompensationEngine {
     ) -> BucketHours {
         var b = BucketHours()
 
-        // Monthly regular quota (based on calendar workdays, not per-log flags)
-//        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar))
-        
-//        let holidayCount = Set(
-//            sliced
-//                .filter { $0.isHoliday }
-//                .map { calendar.startOfDay(for: $0.start) }
-//        ).count
-//        
-//        let workdayCount = max(0, workCalendar.workdays(in: monthAnchor, calendar: calendar)) - holidayCount
-        
+
         let workdayCount = Set(
             sliced
                 .filter { !($0.isHoliday) && !($0.isRestDay) }
                 .map { calendar.startOfDay(for: $0.start) }
         ).count
         
+        
         var remainingRegular = Double(workdayCount) * max(0, hoursPerWorkday)
+        
         
 
         for s in sliced.sorted(by: { $0.start < $1.start }) {
@@ -209,16 +224,30 @@ struct CompensationEngine {
                 b.add(.overtimeHoliday, hours: s.hours)
                 continue
             }
-//            if s.isRestDay {
-//                b.add(.overtimeRestDay, hours: s.hours)
-//                continue
-//            }
+
+            
+            if s.minutes == 0 {
+                // Workday off
+                remainingRegular += hoursPerWorkday
+                if b.workdayOT >= hoursPerWorkday {
+                    b.regular += hoursPerWorkday
+                    b.workdayOT -= hoursPerWorkday
+                } else {
+                    b.regular += b.workdayOT
+                    b.workdayOT = 0
+                }
+                
+                continue
+
+            }
             // Workday: consume remaining monthly regular quota
             let reg = min(remainingRegular, s.hours)
             let ot  = max(0, s.hours - reg)
             if reg > 0 { b.add(.regular,         hours: reg) }
             if ot  > 0 { b.add(.overtimeWorkday, hours: ot ) }
             remainingRegular -= reg
+            
+            
         }
         return b
     }
@@ -246,17 +275,18 @@ struct CompensationEngine {
 
     // Replace your slice-by-day logic
     private func sliceLogsByDay(_ logs: [WorkLog], limitedTo period: DateInterval) -> [DaySlice] {
+//        print(logs.count)
         var out: [DaySlice] = []
         let cal = calendar   // 引擎里已有的 Calendar
 
         for log in logs {
             let clampedStart = max(log.startTime, period.start)
             let clampedEnd   = min(log.endTime, period.end)
-            guard clampedEnd > clampedStart else { continue }
+            guard clampedEnd >= clampedStart else { continue }
 
             var s = clampedStart
-            
-            if log.startTime == log.endTime {
+
+            if log.endTime==log.startTime {
                 let sod = cal.startOfDay(for: log.startTime)
                 out.append(DaySlice(
                     start: log.startTime,

@@ -484,6 +484,7 @@ fileprivate struct DayCell: View {
 
     private var hasWork: Bool { !logsOfDay.isEmpty }
     private var hasOvernight: Bool { logsOfDay.contains { $0.isOvernight } }
+    private var isRestday: Bool { logsOfDay.contains{ $0.isRestDay} }
     private var isHoliday: Bool { logsOfDay.contains{ $0.isHoliday}}
     private var totalSeconds: TimeInterval { logsOfDay.reduce(0) { $0 + $1.duration } }
 
@@ -538,8 +539,11 @@ fileprivate struct DayCell: View {
                     Spacer(minLength: 0)
                     if hasWork {
                         if isHoliday && decimal == 0 {
-                            Text("假").font(.caption)
+                            Text("节").font(.caption)
                                 .foregroundStyle(accentText)
+
+                        } else if (!isHoliday && !isRestday) && decimal == 0 {
+                            Text("假").font(.caption).foregroundStyle(accentText)
 
                         } else {
                             let formatted = decimal.truncatingRemainder(dividingBy: 1) == 0

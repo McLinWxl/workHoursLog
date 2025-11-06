@@ -44,12 +44,20 @@ struct LogForm: View {
     @State private var payPreview: PayrollStatement?
     private let engine = CompensationEngine()
     
-    @State private var isHolidayOverWorkFlag: Bool = true
-    @State private var isWorkDayRestFlag: Bool = false
+    @State private var isHolidayOverWorkFlag: Bool
+    @State private var isWorkDayRestFlag: Bool
 
     // MARK: - Init
 
-
+//    if workLog.isHoliday && workLog.startTime==workLog.endTime {
+//        TopSummaryBarHolidayRest(infomation: "节假日休息", date: startTime)
+//            .frame(height: 50)
+//            .offset(y: -12)
+//    } else if !workLog.isHoliday && !workLog.isRestDay && workLog.startTime==workLog.endTime {
+//        TopSummaryBarHolidayRest(infomation: "工作日请假", date: startTime)
+//            .frame(height: 50)
+//            .offset(y: -12)
+//    }
     init(workLog: WorkLog, isEdit: Bool, prefillProjectID: UUID?) {
         self._workLog   = State(initialValue: workLog)
         self.isEdit     = isEdit
@@ -80,7 +88,8 @@ struct LogForm: View {
         } else {
             self._selectedProjectID = State(initialValue: prefillProjectID)
         }
-        
+        self.isHolidayOverWorkFlag = workLog.isHoliday && !(workLog.startTime==workLog.endTime)
+        self.isWorkDayRestFlag = !workLog.isHoliday && !workLog.isRestDay && workLog.startTime==workLog.endTime
         
     }
 
@@ -288,11 +297,11 @@ struct LogForm: View {
                         .onChange(of: isHolidayFlag) { _ in recomputePayPreview() }
                         .padding(.horizontal)
                     
-                    if isHolidayFlag && !isHolidayOverWorkFlag {
+                    if workLog.isHoliday && workLog.startTime==workLog.endTime {
                         TopSummaryBarHolidayRest(infomation: "节假日休息", date: startTime)
                             .frame(height: 50)
                             .offset(y: -12)
-                    } else if !isHolidayFlag && !isRestDayFlag && isWorkDayRestFlag {
+                    } else if !workLog.isHoliday && !workLog.isRestDay && workLog.startTime==workLog.endTime {
                         TopSummaryBarHolidayRest(infomation: "工作日请假", date: startTime)
                             .frame(height: 50)
                             .offset(y: -12)
@@ -352,12 +361,12 @@ struct LogForm: View {
         
         if isHolidayFlag && !isHolidayOverWorkFlag {
             workLog.startTime = startTime
-            workLog.endTime   = workLog.startTime
+            workLog.endTime   = startTime
             workLog.isRestDay = false
             workLog.isHoliday = true
         } else if isWorkDayRestFlag && !isHolidayFlag && !isRestDayFlag {
             workLog.startTime = startTime
-            workLog.endTime   = workLog.startTime
+            workLog.endTime   = startTime
             workLog.isRestDay = false
             workLog.isHoliday = false
         }
