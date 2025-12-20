@@ -142,6 +142,14 @@ extension Date {
         Calendar.current.startOfDay(for: self)
     }
     
+    var endOfDay: Date {
+        let cal = Calendar.current
+        // Start of next day minus 1 second
+        let nextStart = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? self
+        return nextStart.addingTimeInterval(-1)
+    }
+    
+    
     // Used to generate the mock data for previews
     // Computed property courtesy of ChatGPT
     var randomDateWithinLastThreeMonths: Date {
@@ -179,6 +187,71 @@ extension Date {
     var startOfNextMonth: Date {
         Calendar.current.date(byAdding: .month, value: 1, to: startOfMonth)!
     }
+    
+    static func calendarGridDays(for monthDate: Date) -> [Date?] {
+        let cal = Calendar.current
+        let start = monthDate.startOfMonth
+        let range = cal.range(of: .day, in: .month, for: start)!
+        let firstWeekdayIndex = cal.component(.weekday, from: start) // 1..7
+        let firstWeekday = cal.firstWeekday
+        let leading = ((firstWeekdayIndex - firstWeekday) + 7) % 7
+
+        var days: [Date?] = Array(repeating: nil, count: leading)
+        days += range.map { day -> Date? in
+            cal.date(from: DateComponents(year: start.yearInt, month: start.monthInt, day: day))!
+        }
+
+        // 补齐到 35 或 42
+        let base = 35
+        if days.count > base {
+            days += Array(repeating: nil, count: 42 - days.count)
+        } else if days.count < base {
+            days += Array(repeating: nil, count: base - days.count)
+        }
+        return days
+    }
+    
+    /// Add days safely.
+    func addingDays(_ days: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: days, to: self) ?? self
+    }
+
+    /// Set time safely; fallback to self on failure.
+    func at(hour: Int, minute: Int = 0, second: Int = 0) -> Date {
+        Calendar.current.date(
+            bySettingHour: hour, minute: minute, second: second, of: self
+        ) ?? self
+    }
+    
+    var startOfYear: Date {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year], from: self)
+        return cal.date(from: comps) ?? self
+    }
+
+    static func sequenceDays(from start: Date, to end: Date) -> [Date] {
+        guard start <= end else { return [] }
+        var out: [Date] = []
+        var cur = start
+        while cur < end {
+            out.append(cur)
+            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? end
+        }
+        return out
+    }
+
+    static func sequenceDays(from start: Date, through endInclusive: Date) -> [Date] {
+        guard start <= endInclusive else { return [] }
+        var out: [Date] = []
+        var cur = start
+        while cur <= endInclusive {
+            out.append(cur)
+            cur = Calendar.current.date(byAdding: .day, value: 1, to: cur) ?? endInclusive.addingTimeInterval(1)
+        }
+        return out
+    }
+
+    var isoKey: String { ISO8601DateFormatter().string(from: self) }
 }
 
 
